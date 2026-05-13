@@ -44,8 +44,15 @@
   .panel-tools select{min-width:150px}
   .panel-title{font:700 11px var(--mono);color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
   .panel-body{padding:10px}
+  .chart-wrap{position:relative}
   .chart{width:100%;height:250px;display:block;background:#0f1318;border-radius:6px}
+  .chart.interactive{cursor:crosshair}
   .chart.short{height:200px}
+  .hint{font:10px var(--mono);color:var(--muted);line-height:1.5}
+  .tooltip{position:absolute;z-index:5;pointer-events:none;display:none;min-width:150px;background:#10161cfa;border:1px solid var(--line);border-radius:6px;padding:7px 8px;color:var(--text);font:10px var(--mono);box-shadow:0 8px 28px #0008}
+  .tooltip.visible{display:block}
+  .tooltip .muted{color:var(--muted);margin-top:3px}
+  .table-scroll{max-height:360px;overflow:auto}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .tables{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
   table{width:100%;border-collapse:collapse;font:11px var(--mono)}
@@ -54,6 +61,8 @@
   th{color:var(--muted);font-weight:600;background:#151a20;position:sticky;top:0}
   tr{cursor:pointer}
   tr:hover td{background:#1b232b}
+  tr.selected td{background:#12352f;color:var(--text)}
+  tr:focus-visible td{outline:1px solid var(--accent);outline-offset:-1px}
   .sample-wrap{display:grid;grid-template-columns:260px 1fr;gap:10px;align-items:start}
   #sample-canvas{width:100%;height:260px;background:#0f1318;border-radius:6px;display:block}
   .stat-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
@@ -111,8 +120,18 @@
       </div>
 
       <div class="panel">
-        <div class="panel-head"><div class="panel-title">孔隙率分布</div><span class="chip" id="porosity-summary"></span></div>
-        <div class="panel-body"><canvas class="chart" id="hist-canvas"></canvas></div>
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">极端样本</div>
+            <div class="hint">点击表格行可同步左侧几何图；方向键可在表内移动。</div>
+          </div>
+          <div class="panel-tools">
+            <label class="small">排序指标</label><select id="metric-select"></select>
+            <label class="small">显示前</label><input id="top-n" type="number" value="12" min="3" max="50">
+            <span class="chip" id="metric-title"></span>
+          </div>
+        </div>
+        <div class="panel-body table-scroll"><table id="extreme-table"></table></div>
       </div>
     </div>
 
@@ -141,18 +160,22 @@
     <div class="tables">
       <div class="panel">
         <div class="panel-head">
-          <div class="panel-title">极端样本</div>
-          <div class="panel-tools">
-            <label class="small">排序指标</label><select id="metric-select"></select>
-            <label class="small">显示前</label><input id="top-n" type="number" value="12" min="3" max="50">
-            <span class="chip" id="metric-title"></span>
+          <div>
+            <div class="panel-title">孔隙率分布</div>
+            <div class="hint">悬停查看分箱范围，点击柱子选择该范围内最接近中心的样本。</div>
+          </div>
+          <span class="chip" id="porosity-summary"></span>
+        </div>
+        <div class="panel-body">
+          <div class="chart-wrap">
+            <canvas class="chart interactive" id="hist-canvas"></canvas>
+            <div class="tooltip" id="hist-tooltip"></div>
           </div>
         </div>
-        <div class="panel-body" style="max-height:360px;overflow:auto"><table id="extreme-table"></table></div>
       </div>
       <div class="panel">
         <div class="panel-head"><div class="panel-title">分组统计汇总</div><span class="chip">全部样本</span></div>
-        <div class="panel-body" style="max-height:360px;overflow:auto"><table id="summary-table"></table></div>
+        <div class="panel-body table-scroll"><table id="summary-table"></table></div>
       </div>
     </div>
   </section>
@@ -175,6 +198,7 @@ const METRICS=[
   {group:'检查项',items:[['duplicateError','重复孔误差']]}
 ];
 let rows=[],headers=[],selected=0;
+const histState={bins:[],hoverBin:-1,plot:null};
 const $=id=>document.getElementById(id);
 
 function fmt(v,d=3){return Number.isFinite(v)?v.toFixed(d):'无'}
@@ -327,12 +351,34 @@ function drawHistogram(){
   const {ctx,w,h}=canvasSetup('hist-canvas'), p=axes(ctx,w,h);
   const vals=rows.map(r=>r.porosity), s=stat(vals), bins=30;
   const lo=s.min, hi=s.max||1, counts=Array(bins).fill(0);
-  vals.forEach(v=>{const i=Math.min(bins-1,Math.max(0,Math.floor((v-lo)/(hi-lo||1)*bins))); counts[i]++});
+  const grouped=Array.from({length:bins},()=>[]);
+  vals.forEach((v,idx)=>{
+    const i=Math.min(bins-1,Math.max(0,Math.floor((v-lo)/(hi-lo||1)*bins)));
+    counts[i]++;
+    grouped[i].push(rows[idx]);
+  });
   const maxC=Math.max(...counts,1), bw=(w-p.l-p.r)/bins;
   counts.forEach((c,i)=>{
     const x=p.l+i*bw, bh=(h-p.t-p.b)*c/maxC;
-    ctx.fillStyle='#00d4aa88'; ctx.fillRect(x+1,h-p.b-bh,Math.max(1,bw-2),bh);
+    const selectedInBin=grouped[i].some(r=>r.index===selected);
+    ctx.fillStyle=i===histState.hoverBin?'#ffd166cc':selectedInBin?'#4da3ffcc':'#00d4aa88';
+    ctx.fillRect(x+1,h-p.b-bh,Math.max(1,bw-2),bh);
   });
+  histState.bins=counts.map((count,i)=>({
+    count,
+    rows:grouped[i],
+    min:lo+(hi-lo||1)*i/bins,
+    max:lo+(hi-lo||1)*(i+1)/bins,
+    x:p.l+i*bw,
+    width:bw
+  }));
+  histState.plot={p,w,h,bins,lo,hi};
+  if(rows[selected]){
+    const x=p.l+(rows[selected].porosity-lo)/(hi-lo||1)*(w-p.l-p.r);
+    ctx.strokeStyle='#4da3ff'; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(x,p.t); ctx.lineTo(x,h-p.b); ctx.stroke(); ctx.setLineDash([]);
+    drawText(ctx,`#${rows[selected].index}`,Math.min(w-p.r-4,Math.max(p.l+4,x+5)),p.t+11,'left','#4da3ff');
+  }
   drawText(ctx,pct(lo),p.l,h-10,'left'); drawText(ctx,pct(hi),w-p.r,h-10,'right');
   drawText(ctx,'数量',8,16,'left'); drawText(ctx,'孔隙率',w/2,h-10,'center');
 }
@@ -411,6 +457,7 @@ function drawSelected(idx){
     ['重复孔误差',fmt(r.duplicateError,6)],['行号',String(r.index)]
   ];
   $('sample-stats').innerHTML=items.map(x=>`<div class="stat"><div class="name">${x[0]}</div><div class="value">${x[1]}</div></div>`).join('');
+  updateExtremeSelection();
 }
 function drawGeometry(r){
   const c=$('sample-canvas'), dpr=Math.min(devicePixelRatio||1,2), rect=c.getBoundingClientRect();
@@ -440,9 +487,42 @@ function renderExtremeTable(){
   $('metric-title').textContent=metricLabel(key);
   const sorted=rows.slice().sort((a,b)=>(b[key]??0)-(a[key]??0)).slice(0,n);
   const html=['<thead><tr><th>行号</th><th>指标值</th><th>孔隙率</th><th>最大轴比</th><th>主导孔</th></tr></thead><tbody>'];
-  sorted.forEach(r=>html.push(`<tr data-idx="${r.index}"><td>#${r.index}</td><td>${key.includes('Frac')||key==='porosity'?pct(r[key]):fmt(r[key],3)}</td><td>${pct(r.porosity)}</td><td>${fmt(r.maxAspect,2)}</td><td>${r.dominant}</td></tr>`));
+  sorted.forEach(r=>html.push(`<tr data-idx="${r.index}" tabindex="0" title="点击查看 #${r.index} 的几何形状"><td>#${r.index}</td><td>${key.includes('Frac')||key==='porosity'?pct(r[key]):fmt(r[key],3)}</td><td>${pct(r.porosity)}</td><td>${fmt(r.maxAspect,2)}</td><td>${r.dominant}</td></tr>`));
   html.push('</tbody>'); $('extreme-table').innerHTML=html.join('');
-  $('extreme-table').querySelectorAll('tr[data-idx]').forEach(tr=>tr.addEventListener('click',()=>drawSelected(Number(tr.dataset.idx))));
+  $('extreme-table').querySelectorAll('tr[data-idx]').forEach(tr=>{
+    tr.addEventListener('click',()=>selectSample(Number(tr.dataset.idx)));
+    tr.addEventListener('keydown',e=>handleExtremeKey(e,tr));
+  });
+  updateExtremeSelection();
+}
+function selectSample(idx){
+  drawSelected(idx);
+  drawHistogram();
+}
+function updateExtremeSelection(){
+  const table=$('extreme-table');
+  if(!table)return;
+  table.querySelectorAll('tr[data-idx]').forEach(tr=>{
+    const isSelected=Number(tr.dataset.idx)===selected;
+    tr.classList.toggle('selected',isSelected);
+    tr.setAttribute('aria-selected',isSelected?'true':'false');
+  });
+}
+function handleExtremeKey(e,tr){
+  if(e.key==='Enter'||e.key===' '){
+    e.preventDefault();
+    selectSample(Number(tr.dataset.idx));
+    return;
+  }
+  if(e.key!=='ArrowDown'&&e.key!=='ArrowUp')return;
+  e.preventDefault();
+  const all=Array.from($('extreme-table').querySelectorAll('tr[data-idx]'));
+  const step=e.key==='ArrowDown'?1:-1;
+  const next=all[Math.max(0,Math.min(all.length-1,all.indexOf(tr)+step))];
+  if(next){
+    next.focus();
+    selectSample(Number(next.dataset.idx));
+  }
 }
 function renderSummaryTable(){
   const html=['<thead><tr><th>指标</th><th>均值</th><th>标准差</th><th>最小值</th><th>中位数</th><th>p99</th><th>最大值</th></tr></thead><tbody>'];
@@ -461,12 +541,62 @@ function exportStats(){
   a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));
   a.download='hole_geometry_stats.csv'; a.click();
 }
+function histEventPoint(e){
+  const rect=$('hist-canvas').getBoundingClientRect();
+  return {x:e.clientX-rect.left,y:e.clientY-rect.top,rect};
+}
+function histBinAt(e){
+  if(!histState.plot)return -1;
+  const {x,y}=histEventPoint(e), {p,w,h,bins}=histState.plot;
+  if(x<p.l||x>w-p.r||y<p.t||y>h-p.b)return -1;
+  return Math.min(bins-1,Math.max(0,Math.floor((x-p.l)/(w-p.l-p.r)*bins)));
+}
+function moveHistTooltip(e,binIdx){
+  const tip=$('hist-tooltip'), wrap=tip.parentElement.getBoundingClientRect();
+  if(binIdx<0){
+    tip.classList.remove('visible');
+    return;
+  }
+  const bin=histState.bins[binIdx], {x,y}=histEventPoint(e);
+  tip.innerHTML=`<div>${pct(bin.min)} - ${pct(bin.max)}</div><div class="muted">${bin.count} 条样本，点击选择代表样本</div>`;
+  tip.style.left=Math.min(wrap.width-165,Math.max(8,x+12))+'px';
+  tip.style.top=Math.min(wrap.height-58,Math.max(8,y+12))+'px';
+  tip.classList.add('visible');
+}
+function handleHistMove(e){
+  if(!rows.length)return;
+  const binIdx=histBinAt(e);
+  if(binIdx!==histState.hoverBin){
+    histState.hoverBin=binIdx;
+    drawHistogram();
+  }
+  moveHistTooltip(e,binIdx);
+}
+function handleHistLeave(){
+  if(histState.hoverBin!==-1){
+    histState.hoverBin=-1;
+    drawHistogram();
+  }
+  $('hist-tooltip').classList.remove('visible');
+}
+function handleHistClick(e){
+  const binIdx=histBinAt(e);
+  if(binIdx<0)return;
+  const bin=histState.bins[binIdx];
+  if(!bin.rows.length)return;
+  const center=(bin.min+bin.max)/2;
+  const target=bin.rows.slice().sort((a,b)=>Math.abs(a.porosity-center)-Math.abs(b.porosity-center))[0];
+  selectSample(target.index);
+}
 
 initMetricSelect();
 $('file-input').addEventListener('change',e=>{const f=e.target.files[0]; if(!f)return; const rd=new FileReader(); rd.onload=ev=>loadData(ev.target.result,f.name); rd.readAsText(f);});
 $('metric-select').addEventListener('change',renderExtremeTable);
 $('top-n').addEventListener('change',renderExtremeTable);
 $('export-btn').addEventListener('click',exportStats);
+$('hist-canvas').addEventListener('mousemove',handleHistMove);
+$('hist-canvas').addEventListener('mouseleave',handleHistLeave);
+$('hist-canvas').addEventListener('click',handleHistClick);
 window.addEventListener('resize',()=>{if(rows.length)renderAll()});
 </script>
 <script src="site-nav.js" data-current="hole_geometry_stats.html"></script>
