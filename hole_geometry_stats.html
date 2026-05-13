@@ -20,6 +20,7 @@
   .upload{position:relative;display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 12px;color:var(--text);font:600 11px var(--mono);cursor:pointer}
   .upload:hover{border-color:var(--accent)}
   .upload input{position:absolute;inset:0;opacity:0;cursor:pointer}
+  .upload.hidden{display:none}
   .dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
   .upload.loaded .dot{background:var(--accent)}
   .controls{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -28,6 +29,7 @@
   input[type=number]{width:64px}
   button{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:6px;padding:6px 10px;font:600 11px var(--mono);cursor:pointer}
   button:hover{border-color:var(--accent)}
+  .hidden{display:none!important}
   main{padding:14px 16px 28px}
   #welcome{min-height:55vh;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);line-height:1.7}
   #app{display:none}
@@ -63,6 +65,8 @@
   tr:hover td{background:#1b232b}
   tr.selected td{background:#12352f;color:var(--text)}
   tr:focus-visible td{outline:1px solid var(--accent);outline-offset:-1px}
+  td.metric-value{font-size:13px;font-weight:800;color:var(--yellow)}
+  tr.selected td.metric-value{color:#ffe49a}
   .sample-wrap{display:grid;grid-template-columns:260px 1fr;gap:10px;align-items:start}
   #sample-canvas{width:100%;height:260px;background:#0f1318;border-radius:6px;display:block}
   .stat-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
@@ -73,6 +77,20 @@
   .chip{font:10px var(--mono);border:1px solid var(--line);border-radius:999px;padding:4px 7px;color:var(--muted)}
   .legend{display:flex;gap:10px;flex-wrap:wrap;font:10px var(--mono);color:var(--muted)}
   .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px}
+  .modal-overlay{display:none;position:fixed;inset:0;z-index:200;background:#000b;align-items:center;justify-content:center;padding:18px}
+  .modal-overlay.open{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:10px;width:min(1120px,96vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+  .modal-head{border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px}
+  .modal-title{font:700 12px var(--mono);color:var(--accent)}
+  .modal-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .modal-tools input{width:180px}
+  .modal-body{overflow:auto;padding:10px}
+  .sample-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+  .sample-card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;display:grid;grid-template-columns:78px 1fr;gap:8px;padding:7px;text-align:left;cursor:pointer;color:var(--text)}
+  .sample-card:hover,.sample-card.selected{border-color:var(--accent)}
+  .sample-card canvas{background:#0f1318;border-radius:5px;width:78px;height:62px}
+  .sample-card .title{font:700 11px var(--mono);color:var(--text)}
+  .sample-card .meta{font:10px var(--mono);color:var(--muted);line-height:1.5;margin-top:3px}
   @media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}.layout,.tables,.grid2{grid-template-columns:1fr}.sample-wrap{grid-template-columns:1fr}}
   @media(max-width:640px){.kpis{grid-template-columns:1fr 1fr}.controls{margin-left:0}.chart{height:220px}}
 </style>
@@ -81,7 +99,10 @@
 <header>
   <h1>孔几何统计分析</h1>
   <label class="upload" id="upload-label"><span class="dot"></span><span id="file-name">加载 hole_data_abaqus_geom.csv</span><input id="file-input" type="file" accept=".csv"></label>
+  <label class="upload hidden" id="compare-upload"><span class="dot"></span><span id="compare-name">导入对比 CSV</span><input id="compare-input" type="file" accept=".csv"></label>
   <div class="controls">
+    <button id="list-btn" disabled>数据列表</button>
+    <button id="clear-compare-btn" class="hidden" disabled>清除对比</button>
     <button id="export-btn" disabled>导出统计 CSV</button>
   </div>
 </header>
@@ -127,6 +148,7 @@
           </div>
           <div class="panel-tools">
             <label class="small">排序指标</label><select id="metric-select"></select>
+            <label class="small">方向</label><select id="sort-dir"><option value="desc">倒序</option><option value="asc">正序</option></select>
             <label class="small">显示前</label><input id="top-n" type="number" value="12" min="3" max="50">
             <span class="chip" id="metric-title"></span>
           </div>
@@ -181,6 +203,25 @@
   </section>
 </main>
 
+<div class="modal-overlay" id="list-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">当前统计数据列表</div>
+        <div class="hint" id="list-summary">点击任意样本可切换左侧几何图。</div>
+      </div>
+      <div class="modal-tools">
+        <input id="row-jump" type="number" placeholder="输入统计行号或原始行号">
+        <button id="row-jump-btn">跳转</button>
+        <button id="list-close-btn">关闭</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="sample-list" id="sample-list"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 const L=20;
 const CELL_AREA=L*L;
@@ -197,7 +238,7 @@ const METRICS=[
   {group:'面积占比',items:[['a_areaFrac','a 孔'],['b_areaFrac','b 孔'],['c_areaFrac','c 孔'],['d_areaFrac','d 孔']]},
   {group:'检查项',items:[['duplicateError','重复孔误差']]}
 ];
-let rows=[],headers=[],selected=0;
+let rows=[],baseRows=[],compareRows=[],headers=[],selected=0,compareSummary=null;
 const histState={bins:[],hoverBin:-1,plot:null};
 const $=id=>document.getElementById(id);
 
@@ -226,7 +267,7 @@ function readEllipse(row,prefix){
   const theta=(Math.atan2(majorVec.y,majorVec.x)*180/Math.PI+360)%360;
   return {ox,oy,major,minor,aspect:major/Math.max(minor,1e-12),theta,area:Math.PI*major*minor,majorVec,minorVec};
 }
-function enrichRow(row){
+function enrichRow(row,source='主表'){
   const holes={};
   GROUPS.forEach(g=>holes[g.key]=readEllipse(row,g.key));
   const area=GROUPS.reduce((s,g)=>s+holes[g.key].area,0);
@@ -235,7 +276,7 @@ function enrichRow(row){
   const areas=GROUPS.map(g=>holes[g.key].area);
   const dominant=GROUPS[areas.indexOf(Math.max(...areas))].key;
   const duplicateError=duplicateErrorForRow(row,holes);
-  const out={index:row._index,raw:row,holes,totalHoleArea:area,porosity,maxAspect:Math.max(...aspects),meanAspect:mean(aspects),dominant,duplicateError};
+  const out={index:row._index,sourceIndex:row._index,source,raw:row,holes,totalHoleArea:area,porosity,maxAspect:Math.max(...aspects),meanAspect:mean(aspects),dominant,duplicateError};
   GROUPS.forEach(g=>{
     out[`${g.key}_major`]=holes[g.key].major;
     out[`${g.key}_minor`]=holes[g.key].minor;
@@ -244,7 +285,29 @@ function enrichRow(row){
     out[`${g.key}_areaFrac`]=holes[g.key].area/CELL_AREA;
     out[`${g.key}_theta`]=holes[g.key].theta;
   });
+  out.signature=geometrySignature(out);
   return out;
+}
+function assignActiveIndices(activeRows){
+  activeRows.forEach((row,index)=>row.index=index);
+  return activeRows;
+}
+function parseDataset(text,source){
+  const parsed=parseCSV(text);
+  return {headers:parsed.header,rows:parsed.rows.map(row=>enrichRow(row,source))};
+}
+function keyNumber(v,digits=8){
+  return Number.isFinite(v)?(Math.round(v*Math.pow(10,digits))/Math.pow(10,digits)).toFixed(digits):'nan';
+}
+function keyAngle(theta){
+  const a=(((theta%180)+180)%180);
+  return keyNumber(a>=180-1e-8?0:a,8);
+}
+function geometrySignature(row){
+  return GROUPS.map(g=>{
+    const h=row.holes[g.key];
+    return [g.key,keyNumber(h.ox),keyNumber(h.oy),keyNumber(h.major),keyNumber(h.minor),keyAngle(h.theta)].join(':');
+  }).join('|');
 }
 function duplicateErrorForRow(row,holes){
   let maxErr=0;
@@ -291,18 +354,79 @@ function metricLabel(key){
   return key;
 }
 function loadData(text,name){
-  const parsed=parseCSV(text);
-  headers=parsed.header;
-  rows=parsed.rows.map(enrichRow);
+  const parsed=parseDataset(text,'主表');
+  headers=parsed.headers;
+  baseRows=parsed.rows;
+  compareRows=[];
+  compareSummary=null;
+  rows=assignActiveIndices(baseRows.slice());
   selected=0;
   $('upload-label').classList.add('loaded');
   $('file-name').textContent=name||'CSV 已加载';
+  $('compare-upload').classList.remove('hidden');
+  $('compare-upload').classList.remove('loaded');
+  $('compare-name').textContent='导入对比 CSV';
+  $('clear-compare-btn').classList.add('hidden');
+  $('clear-compare-btn').disabled=true;
   $('welcome').style.display='none';
   $('app').classList.add('visible');
   $('export-btn').disabled=false;
+  $('list-btn').disabled=false;
+  renderAll();
+}
+function loadCompareData(text,name){
+  const parsed=parseDataset(text,'对比表');
+  compareRows=parsed.rows;
+  applySymmetricDifference();
+  selected=0;
+  $('compare-upload').classList.add('loaded');
+  $('compare-name').textContent=name||'对比 CSV 已加载';
+  $('clear-compare-btn').classList.remove('hidden');
+  $('clear-compare-btn').disabled=false;
+  renderAll();
+}
+function applySymmetricDifference(){
+  const baseCounts=countSignatures(baseRows);
+  const compareCounts=countSignatures(compareRows);
+  const intersection=[...new Set([...baseCounts.keys(),...compareCounts.keys()])].reduce((sum,key)=>sum+Math.min(baseCounts.get(key)||0,compareCounts.get(key)||0),0);
+  const compareRemain=countSignatures(compareRows);
+  const baseOnly=[];
+  baseRows.forEach(row=>{
+    const count=compareRemain.get(row.signature)||0;
+    if(count>0)compareRemain.set(row.signature,count-1);
+    else baseOnly.push(row);
+  });
+  const baseRemain=countSignatures(baseRows);
+  const compareOnly=[];
+  compareRows.forEach(row=>{
+    const count=baseRemain.get(row.signature)||0;
+    if(count>0)baseRemain.set(row.signature,count-1);
+    else compareOnly.push(row);
+  });
+  rows=assignActiveIndices(baseOnly.concat(compareOnly));
+  compareSummary={base:baseRows.length,compare:compareRows.length,intersection,baseOnly:baseOnly.length,compareOnly:compareOnly.length};
+}
+function countSignatures(list){
+  const counts=new Map();
+  list.forEach(row=>counts.set(row.signature,(counts.get(row.signature)||0)+1));
+  return counts;
+}
+function clearCompare(){
+  compareRows=[];
+  compareSummary=null;
+  rows=assignActiveIndices(baseRows.slice());
+  selected=0;
+  $('compare-upload').classList.remove('loaded');
+  $('compare-name').textContent='导入对比 CSV';
+  $('clear-compare-btn').classList.add('hidden');
+  $('clear-compare-btn').disabled=true;
   renderAll();
 }
 function renderAll(){
+  if(!rows.length){
+    renderEmptyState();
+    return;
+  }
   renderKpis();
   drawSelected(selected);
   drawHistogram();
@@ -313,18 +437,35 @@ function renderAll(){
   renderExtremeTable();
   renderSummaryTable();
 }
+function renderEmptyState(){
+  $('kpis').innerHTML=[
+    ['当前统计样本',0,'两个 CSV 的几何交集之外没有样本'],
+    ['主表',compareSummary?compareSummary.base:baseRows.length,'条'],
+    ['对比表',compareSummary?compareSummary.compare:0,'条'],
+    ['交集',compareSummary?compareSummary.intersection:0,'条']
+  ].map(c=>`<div class="kpi"><div class="name">${c[0]}</div><div class="value">${c[1]}</div><div class="sub">${c[2]}</div></div>`).join('');
+  ['hist-canvas','box-canvas','scatter-canvas','contrib-canvas','corr-canvas','sample-canvas'].forEach(id=>{
+    const {ctx,w,h}=canvasSetup(id);
+    drawText(ctx,'没有可统计的数据',w/2,h/2,'center','#8290a1','13px ui-monospace,monospace');
+  });
+  $('sample-chips').innerHTML='';
+  $('sample-stats').innerHTML='';
+  $('extreme-table').innerHTML='';
+  $('summary-table').innerHTML='';
+  $('porosity-summary').textContent='空差集';
+}
 function renderKpis(){
   const ps=rows.map(r=>r.porosity), maxA=rows.map(r=>r.maxAspect), dup=rows.map(r=>r.duplicateError);
   const s=stat(ps), a=stat(maxA);
   const dom=Object.fromEntries(GROUPS.map(g=>[g.key,0])); rows.forEach(r=>dom[r.dominant]++);
   const domKey=Object.entries(dom).sort((x,y)=>y[1]-x[1])[0][0];
   const cards=[
-    ['样本数',rows.length,'条几何记录'],
+    ['统计样本数',rows.length,compareSummary?`差集：主表 ${compareSummary.baseOnly} / 对比表 ${compareSummary.compareOnly}`:'条几何记录'],
     ['平均孔隙率',pct(s.mean),'中位数 '+pct(s.median)],
     ['孔隙率范围',pct(s.min)+' - '+pct(s.max),'p01-p99 '+pct(s.p01)+' - '+pct(s.p99)],
     ['平均最大轴比',fmt(a.mean,2),'p99 '+fmt(a.p99,2)],
     ['面积主导孔',domKey,dom[domKey]+' 条样本'],
-    ['重复孔检查',fmt(Math.max(...dup),2),'0 表示周期重复孔完全一致']
+    [compareSummary?'交集数量':'重复孔检查',compareSummary?compareSummary.intersection:fmt(Math.max(...dup),2),compareSummary?`主表 ${compareSummary.base} / 对比表 ${compareSummary.compare}`:'0 表示周期重复孔完全一致']
   ];
   $('kpis').innerHTML=cards.map(c=>`<div class="kpi"><div class="name">${c[0]}</div><div class="value">${c[1]}</div><div class="sub">${c[2]}</div></div>`).join('');
   $('porosity-summary').textContent=`均值 ${pct(s.mean)} / 标准差 ${pct(s.std)}`;
@@ -447,14 +588,14 @@ function drawSelected(idx){
   selected=Math.max(0,Math.min(rows.length-1,idx));
   const r=rows[selected];
   drawGeometry(r);
-  $('sample-chips').innerHTML=`<span class="chip">#${r.index}</span><span class="chip">孔隙率 ${pct(r.porosity)}</span><span class="chip">主导孔 ${r.dominant}</span>`;
+  $('sample-chips').innerHTML=`<span class="chip">统计 #${r.index}</span><span class="chip">${r.source} 原始 #${r.sourceIndex}</span><span class="chip">孔隙率 ${pct(r.porosity)}</span><span class="chip">主导孔 ${r.dominant}</span>`;
   const items=[
     ['孔隙率',pct(r.porosity)],['孔总面积',fmt(r.totalHoleArea,3)],
     ['最大长短轴比',fmt(r.maxAspect,3)],['平均长短轴比',fmt(r.meanAspect,3)],
     ['a 轴比 / 面积占比',fmt(r.a_aspect,2)+' / '+pct(r.a_areaFrac)],['b 轴比 / 面积占比',fmt(r.b_aspect,2)+' / '+pct(r.b_areaFrac)],
     ['c 轴比 / 面积占比',fmt(r.c_aspect,2)+' / '+pct(r.c_areaFrac)],['d 轴比 / 面积占比',fmt(r.d_aspect,2)+' / '+pct(r.d_areaFrac)],
     ['a 角度 / b 角度',fmt(r.a_theta,1)+' / '+fmt(r.b_theta,1)],['c 角度 / d 角度',fmt(r.c_theta,1)+' / '+fmt(r.d_theta,1)],
-    ['重复孔误差',fmt(r.duplicateError,6)],['行号',String(r.index)]
+    ['重复孔误差',fmt(r.duplicateError,6)],['统计行 / 原始行',`${r.index} / ${r.sourceIndex}`]
   ];
   $('sample-stats').innerHTML=items.map(x=>`<div class="stat"><div class="name">${x[0]}</div><div class="value">${x[1]}</div></div>`).join('');
   updateExtremeSelection();
@@ -463,8 +604,11 @@ function drawGeometry(r){
   const c=$('sample-canvas'), dpr=Math.min(devicePixelRatio||1,2), rect=c.getBoundingClientRect();
   const w=Math.max(240,Math.round(rect.width)), h=Math.max(240,Math.round(rect.height));
   c.width=w*dpr; c.height=h*dpr; const ctx=c.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  drawGeometryCanvas(ctx,w,h,r,28);
+}
+function drawGeometryCanvas(ctx,w,h,r,pad=10){
   ctx.fillStyle='#0f1318'; ctx.fillRect(0,0,w,h);
-  const pad=28, size=Math.min(w-2*pad,h-2*pad), ox=(w-size)/2, oy=(h-size)/2, sc=size/L;
+  const size=Math.min(w-2*pad,h-2*pad), ox=(w-size)/2, oy=(h-size)/2, sc=size/L;
   const toCanvas=(x,y)=>[ox+(x+L/2)*sc, oy+(L-y)*sc];
   ctx.fillStyle='#8c9bad'; ctx.fillRect(ox,oy,size,size);
   ctx.strokeStyle='#26303a'; ctx.lineWidth=1; for(let i=1;i<=3;i++){const x=ox+i*size/4;ctx.beginPath();ctx.moveTo(x,oy);ctx.lineTo(x,oy+size);ctx.stroke()}
@@ -484,10 +628,11 @@ function drawGeometry(r){
 }
 function renderExtremeTable(){
   const key=$('metric-select').value, n=Number($('top-n').value)||12;
-  $('metric-title').textContent=metricLabel(key);
-  const sorted=rows.slice().sort((a,b)=>(b[key]??0)-(a[key]??0)).slice(0,n);
-  const html=['<thead><tr><th>行号</th><th>指标值</th><th>孔隙率</th><th>最大轴比</th><th>主导孔</th></tr></thead><tbody>'];
-  sorted.forEach(r=>html.push(`<tr data-idx="${r.index}" tabindex="0" title="点击查看 #${r.index} 的几何形状"><td>#${r.index}</td><td>${key.includes('Frac')||key==='porosity'?pct(r[key]):fmt(r[key],3)}</td><td>${pct(r.porosity)}</td><td>${fmt(r.maxAspect,2)}</td><td>${r.dominant}</td></tr>`));
+  const dir=$('sort-dir').value;
+  $('metric-title').textContent=`${metricLabel(key)} / ${dir==='desc'?'倒序':'正序'}`;
+  const sorted=rows.slice().sort((a,b)=>dir==='desc'?(b[key]??0)-(a[key]??0):(a[key]??0)-(b[key]??0)).slice(0,n);
+  const html=['<thead><tr><th>统计行</th><th>来源</th><th>原始行</th><th>指标值</th><th>孔隙率</th><th>最大轴比</th><th>主导孔</th></tr></thead><tbody>'];
+  sorted.forEach(r=>html.push(`<tr data-idx="${r.index}" tabindex="0" title="点击查看统计 #${r.index} 的几何形状"><td>#${r.index}</td><td>${r.source}</td><td>#${r.sourceIndex}</td><td class="metric-value">${key.includes('Frac')||key==='porosity'?pct(r[key]):fmt(r[key],3)}</td><td>${pct(r.porosity)}</td><td>${fmt(r.maxAspect,2)}</td><td>${r.dominant}</td></tr>`));
   html.push('</tbody>'); $('extreme-table').innerHTML=html.join('');
   $('extreme-table').querySelectorAll('tr[data-idx]').forEach(tr=>{
     tr.addEventListener('click',()=>selectSample(Number(tr.dataset.idx)));
@@ -534,7 +679,7 @@ function renderSummaryTable(){
   html.push('</tbody>'); $('summary-table').innerHTML=html.join('');
 }
 function exportStats(){
-  const cols=['index','porosity','totalHoleArea','maxAspect','meanAspect','dominant','duplicateError'];
+  const cols=['index','source','sourceIndex','porosity','totalHoleArea','maxAspect','meanAspect','dominant','duplicateError'];
   GROUPS.forEach(g=>cols.push(`${g.key}_major`,`${g.key}_minor`,`${g.key}_aspect`,`${g.key}_area`,`${g.key}_areaFrac`,`${g.key}_theta`));
   const lines=[cols.join(',')].concat(rows.map(r=>cols.map(c=>r[c]).join(',')));
   const a=document.createElement('a');
@@ -559,8 +704,8 @@ function moveHistTooltip(e,binIdx){
   }
   const bin=histState.bins[binIdx], {x,y}=histEventPoint(e);
   tip.innerHTML=`<div>${pct(bin.min)} - ${pct(bin.max)}</div><div class="muted">${bin.count} 条样本，点击选择代表样本</div>`;
-  tip.style.left=Math.min(wrap.width-165,Math.max(8,x+12))+'px';
-  tip.style.top=Math.min(wrap.height-58,Math.max(8,y+12))+'px';
+  tip.style.left=Math.max(8,Math.min(wrap.width-165,Math.max(8,x+12)))+'px';
+  tip.style.top=Math.max(8,Math.min(wrap.height-58,Math.max(8,y+12)))+'px';
   tip.classList.add('visible');
 }
 function handleHistMove(e){
@@ -588,12 +733,82 @@ function handleHistClick(e){
   const target=bin.rows.slice().sort((a,b)=>Math.abs(a.porosity-center)-Math.abs(b.porosity-center))[0];
   selectSample(target.index);
 }
+function openSampleList(){
+  if(!rows.length)return;
+  $('list-modal').classList.add('open');
+  renderSampleList();
+}
+function closeSampleList(){
+  $('list-modal').classList.remove('open');
+}
+function renderSampleList(){
+  const list=$('sample-list');
+  $('list-summary').textContent=`当前统计 ${rows.length} 条；可输入统计行号，或输入原始行号后匹配主表/对比表中的第一条。`;
+  const fragment=document.createDocumentFragment();
+  list.innerHTML='';
+  rows.forEach(row=>{
+    const card=document.createElement('button');
+    card.className='sample-card'+(row.index===selected?' selected':'');
+    card.dataset.idx=row.index;
+    card.innerHTML=`
+      <canvas width="156" height="124"></canvas>
+      <div>
+        <div class="title">统计 #${row.index}</div>
+        <div class="meta">${row.source} 原始 #${row.sourceIndex}</div>
+        <div class="meta">孔隙率 ${pct(row.porosity)} · 最大轴比 ${fmt(row.maxAspect,2)}</div>
+        <div class="meta">主导孔 ${row.dominant}</div>
+      </div>
+    `;
+    card.addEventListener('click',()=>{
+      selectSample(row.index);
+      renderSampleListSelection();
+      closeSampleList();
+    });
+    fragment.appendChild(card);
+  });
+  list.appendChild(fragment);
+  requestAnimationFrame(()=>drawSampleListThumbs());
+}
+function drawSampleListThumbs(){
+  $('sample-list').querySelectorAll('.sample-card').forEach(card=>{
+    const row=rows[Number(card.dataset.idx)];
+    const canvas=card.querySelector('canvas');
+    const ctx=canvas.getContext('2d');
+    drawGeometryCanvas(ctx,canvas.width,canvas.height,row,8);
+  });
+}
+function renderSampleListSelection(){
+  $('sample-list').querySelectorAll('.sample-card').forEach(card=>card.classList.toggle('selected',Number(card.dataset.idx)===selected));
+}
+function jumpToInputRow(){
+  const raw=$('row-jump').value.trim();
+  if(raw==='')return;
+  const n=Number(raw);
+  if(!Number.isFinite(n))return;
+  const exact=rows.find(row=>row.index===n);
+  const sourceMatch=rows.find(row=>row.sourceIndex===n);
+  const target=exact||sourceMatch;
+  if(target){
+    selectSample(target.index);
+    renderSampleListSelection();
+    const card=$('sample-list').querySelector(`.sample-card[data-idx="${target.index}"]`);
+    if(card)card.scrollIntoView({block:'center',behavior:'smooth'});
+  }
+}
 
 initMetricSelect();
 $('file-input').addEventListener('change',e=>{const f=e.target.files[0]; if(!f)return; const rd=new FileReader(); rd.onload=ev=>loadData(ev.target.result,f.name); rd.readAsText(f);});
+$('compare-input').addEventListener('change',e=>{const f=e.target.files[0]; if(!f)return; const rd=new FileReader(); rd.onload=ev=>loadCompareData(ev.target.result,f.name); rd.readAsText(f);});
 $('metric-select').addEventListener('change',renderExtremeTable);
+$('sort-dir').addEventListener('change',renderExtremeTable);
 $('top-n').addEventListener('change',renderExtremeTable);
 $('export-btn').addEventListener('click',exportStats);
+$('list-btn').addEventListener('click',openSampleList);
+$('list-close-btn').addEventListener('click',closeSampleList);
+$('list-modal').addEventListener('click',e=>{if(e.target===$('list-modal'))closeSampleList();});
+$('row-jump-btn').addEventListener('click',jumpToInputRow);
+$('row-jump').addEventListener('keydown',e=>{if(e.key==='Enter')jumpToInputRow();});
+$('clear-compare-btn').addEventListener('click',clearCompare);
 $('hist-canvas').addEventListener('mousemove',handleHistMove);
 $('hist-canvas').addEventListener('mouseleave',handleHistLeave);
 $('hist-canvas').addEventListener('click',handleHistClick);
