@@ -242,7 +242,7 @@ const METRICS=[
   {group:'总体',items:[['porosity','孔隙率'],['maxAspect','最大长短轴比']]},
   {group:'长短轴比',items:[['a_aspect','a 孔'],['b_aspect','b 孔'],['c_aspect','c 孔'],['d_aspect','d 孔']]},
   {group:'面积占比',items:[['a_areaFrac','a 孔'],['b_areaFrac','b 孔'],['c_areaFrac','c 孔'],['d_areaFrac','d 孔']]},
-  {group:'检查项',items:[['duplicateError','重复孔误差']]}
+  {group:'方向角',items:[['a_theta','a 孔方向角'],['b_theta','b 孔方向角'],['c_theta','c 孔方向角'],['d_theta','d 孔方向角']]}
 ];
 let rows=[],baseRows=[],compareRows=[],headers=[],selected=0,compareSummary=null;
 const histState={bins:[],hoverBin:-1,plot:null};
@@ -485,8 +485,9 @@ function renderEmptyState(){
   $('porosity-summary').textContent='空差集';
 }
 function renderKpis(){
-  const ps=rows.map(r=>r.porosity), maxA=rows.map(r=>r.maxAspect), dup=rows.map(r=>r.duplicateError);
+  const ps=rows.map(r=>r.porosity), maxA=rows.map(r=>r.maxAspect);
   const s=stat(ps), a=stat(maxA);
+  const cv=Number.isFinite(s.mean)&&s.mean!==0?s.std/s.mean:0;
   const dom=Object.fromEntries(GROUPS.map(g=>[g.key,0])); rows.forEach(r=>dom[r.dominant]++);
   const domKey=Object.entries(dom).sort((x,y)=>y[1]-x[1])[0][0];
   const cards=[
@@ -495,7 +496,7 @@ function renderKpis(){
     ['孔隙率范围',pct(s.min)+' - '+pct(s.max),'p01-p99 '+pct(s.p01)+' - '+pct(s.p99)],
     ['平均最大轴比',fmt(a.mean,2),'p99 '+fmt(a.p99,2)],
     ['面积主导孔',domKey,dom[domKey]+' 条样本'],
-    [compareSummary?'交集数量':'重复孔检查',compareSummary?compareSummary.intersection:fmt(Math.max(...dup),2),compareSummary?`主表 ${compareSummary.base} / 对比表 ${compareSummary.compare}`:'0 表示周期重复孔完全一致']
+    [compareSummary?'交集数量':'孔隙率变异系数',compareSummary?compareSummary.intersection:fmt(cv,3),compareSummary?`主表 ${compareSummary.base} / 对比表 ${compareSummary.compare}`:'CV = 标准差 / 均值']
   ];
   $('kpis').innerHTML=cards.map(c=>`<div class="kpi"><div class="name">${c[0]}</div><div class="value">${c[1]}</div><div class="sub">${c[2]}</div></div>`).join('');
   $('porosity-summary').textContent=`均值 ${pct(s.mean)} / 标准差 ${pct(s.std)}`;
@@ -634,7 +635,6 @@ function drawSelected(idx){
     sampleMetric('d 面积占比','d_areaFrac',r.d_areaFrac,pct),
     `<div class="stat"><div class="name">a 角度 / b 角度</div><div class="value">${fmt(r.a_theta,1)} / ${fmt(r.b_theta,1)}</div></div>`,
     `<div class="stat"><div class="name">c 角度 / d 角度</div><div class="value">${fmt(r.c_theta,1)} / ${fmt(r.d_theta,1)}</div></div>`,
-    sampleMetric('重复孔误差','duplicateError',r.duplicateError,v=>fmt(v,6)),
     `<div class="stat"><div class="name">统计行 / 原始行</div><div class="value">${r.index} / ${r.sourceIndex}</div></div>`
   ].join('');
   updateExtremeSelection();
@@ -714,7 +714,7 @@ function renderSummaryTable(){
   add('孔隙率',rows.map(r=>r.porosity),true);
   GROUPS.forEach(g=>add(`${g.key} 孔长短轴比`,rows.map(r=>r[`${g.key}_aspect`])));
   GROUPS.forEach(g=>add(`${g.key} 孔面积占比`,rows.map(r=>r[`${g.key}_areaFrac`]),true));
-  add('重复孔误差',rows.map(r=>r.duplicateError));
+  GROUPS.forEach(g=>add(`${g.key} 孔方向角 (°)`,rows.map(r=>r[`${g.key}_theta`])));
   html.push('</tbody>'); $('summary-table').innerHTML=html.join('');
 }
 function exportStats(){
