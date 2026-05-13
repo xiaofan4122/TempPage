@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>超材料分析工具</title>
+<link rel="stylesheet" href="site-nav.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0b0d10;--panel:#12161b;--panel2:#181e25;--line:#26303a;
+    --text:#e7edf4;--muted:#8290a1;--accent:#00d4aa;--blue:#4da3ff;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh}
+  main{margin:0 auto;max-width:1120px;padding:28px 16px 40px}
+  h1{color:var(--accent);font:700 22px var(--mono);letter-spacing:.04em;margin-bottom:10px}
+  .intro{color:var(--muted);line-height:1.8;max-width:760px}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:22px}
+  .tool-card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;text-decoration:none;color:var(--text);display:block;min-height:170px}
+  .tool-card:hover{border-color:var(--accent)}
+  .tool-card h2{font:700 15px var(--mono);color:var(--text);margin-bottom:9px}
+  .tool-card p{color:var(--muted);line-height:1.7;margin-bottom:14px}
+  .tag-row{display:flex;gap:6px;flex-wrap:wrap}
+  .tag{border:1px solid var(--line);border-radius:999px;color:var(--muted);font:10px var(--mono);padding:4px 7px}
+  .note{background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--muted);font:12px var(--mono);line-height:1.7;margin-top:14px;padding:12px}
+  @media(max-width:780px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+  <h1>超材料分析工具</h1>
+  <p class="intro">这里集中放置静态网页工具。页面在浏览器本地读取 CSV/JSON 文件，不会把数据上传到服务器；GitHub Pages 只负责托管网页本身。</p>
+
+  <div class="grid">
+    <a class="tool-card" href="curve_inspector_raw_diff_fixed_click.html">
+      <h2>曲线检查器</h2>
+      <p>浏览应力-应变曲线、导数曲线和几何参数；曲线分类特征来自预先生成的 feature JSON。</p>
+      <div class="tag-row">
+        <span class="tag">X/Y CSV</span>
+        <span class="tag">feature JSON</span>
+        <span class="tag">曲线筛选</span>
+      </div>
+    </a>
+
+    <a class="tool-card" href="hole_geometry_stats.html">
+      <h2>孔几何统计</h2>
+      <p>计算 Abaqus 孔几何的孔隙率、长短轴比、面积贡献、相关矩阵和极端样本。</p>
+      <div class="tag-row">
+        <span class="tag">Abaqus CSV</span>
+        <span class="tag">孔隙率</span>
+        <span class="tag">统计图表</span>
+      </div>
+    </a>
+  </div>
+
+  <div class="note">以后新增页面时，把 HTML 放到仓库根目录，并在 <code>site-nav.js</code> 的 <code>SITE_PAGES</code> 数组里加一项即可。</div>
+</main>
+<script src="site-nav.js" data-current="index.html"></script>
+</body>
+</html>

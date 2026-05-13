@@ -1,0 +1,13 @@
+# Local data and generated outputs
+*.csv
+curve_features.json
+flagged_indices.txt
+
+# Python cache
+__pycache__/
+*.pyc
+
+# OS/editor files
+.DS_Store
+.vscode/
+.idea/

@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>孔几何统计分析</title>
+<link rel="stylesheet" href="site-nav.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0b0d10;--panel:#12161b;--panel2:#181e25;--line:#26303a;
+    --text:#e7edf4;--muted:#8290a1;--accent:#00d4aa;--blue:#4da3ff;
+    --orange:#ff8a4c;--violet:#b68cff;--yellow:#ffd166;--red:#ff5d73;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh}
+  header{position:sticky;top:0;z-index:20;background:#0b0d10f2;border-bottom:1px solid var(--line);backdrop-filter:blur(10px);padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  h1{font:700 13px var(--mono);color:var(--accent);letter-spacing:.08em;white-space:nowrap}
+  .upload{position:relative;display:inline-flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 12px;color:var(--text);font:600 11px var(--mono);cursor:pointer}
+  .upload:hover{border-color:var(--accent)}
+  .upload input{position:absolute;inset:0;opacity:0;cursor:pointer}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+  .upload.loaded .dot{background:var(--accent)}
+  .controls{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  label.small{font:10px var(--mono);color:var(--muted)}
+  select,input[type=number]{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:5px;padding:5px 7px;font:11px var(--mono)}
+  input[type=number]{width:64px}
+  button{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:6px;padding:6px 10px;font:600 11px var(--mono);cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  main{padding:14px 16px 28px}
+  #welcome{min-height:55vh;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);line-height:1.7}
+  #app{display:none}
+  #app.visible{display:block}
+  .kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-bottom:10px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-height:70px}
+  .kpi .name{font:10px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .kpi .value{font:700 22px var(--mono);color:var(--text);margin-top:6px}
+  .kpi .sub{font:10px var(--mono);color:var(--muted);margin-top:3px}
+  .layout{display:grid;grid-template-columns:1.15fr .85fr;gap:10px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:9px 11px;gap:10px;flex-wrap:wrap}
+  .panel-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .panel-tools select{min-width:150px}
+  .panel-title{font:700 11px var(--mono);color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
+  .panel-body{padding:10px}
+  .chart{width:100%;height:250px;display:block;background:#0f1318;border-radius:6px}
+  .chart.short{height:200px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .tables{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  table{width:100%;border-collapse:collapse;font:11px var(--mono)}
+  th,td{padding:6px 7px;border-bottom:1px solid #232c35;text-align:right;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--muted);font-weight:600;background:#151a20;position:sticky;top:0}
+  tr{cursor:pointer}
+  tr:hover td{background:#1b232b}
+  .sample-wrap{display:grid;grid-template-columns:260px 1fr;gap:10px;align-items:start}
+  #sample-canvas{width:100%;height:260px;background:#0f1318;border-radius:6px;display:block}
+  .stat-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 8px}
+  .stat .name{font:9px var(--mono);color:var(--muted)}
+  .stat .value{font:13px var(--mono);color:var(--text);margin-top:2px}
+  .chips{display:flex;gap:5px;flex-wrap:wrap}
+  .chip{font:10px var(--mono);border:1px solid var(--line);border-radius:999px;padding:4px 7px;color:var(--muted)}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;font:10px var(--mono);color:var(--muted)}
+  .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px}
+  @media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}.layout,.tables,.grid2{grid-template-columns:1fr}.sample-wrap{grid-template-columns:1fr}}
+  @media(max-width:640px){.kpis{grid-template-columns:1fr 1fr}.controls{margin-left:0}.chart{height:220px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>孔几何统计分析</h1>
+  <label class="upload" id="upload-label"><span class="dot"></span><span id="file-name">加载 hole_data_abaqus_geom.csv</span><input id="file-input" type="file" accept=".csv"></label>
+  <div class="controls">
+    <button id="export-btn" disabled>导出统计 CSV</button>
+  </div>
+</header>
+
+<main>
+  <section id="welcome">
+    <div>
+      <div style="font:700 20px var(--mono);color:var(--accent);margin-bottom:10px">加载 Abaqus 孔几何 CSV</div>
+      <div>本页面计算单胞孔隙率、4 个等效孔的长短轴比、面积贡献、分布、相关性、周期重复孔一致性，以及极端样本。</div>
+      <div style="margin-top:8px;font:11px var(--mono)">孔隙率模型：(面积(a) + 面积(b) + 面积(c) + 面积(d)) / 20^2。</div>
+    </div>
+  </section>
+
+  <section id="app">
+    <div class="kpis" id="kpis"></div>
+
+    <div class="layout">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">当前样本几何</div>
+          <div class="chips" id="sample-chips"></div>
+        </div>
+        <div class="panel-body sample-wrap">
+          <canvas id="sample-canvas"></canvas>
+          <div>
+            <div class="stat-list" id="sample-stats"></div>
+            <div style="height:10px"></div>
+            <div class="legend">
+              <span><i class="sw" style="background:var(--orange)"></i>a 上下边界孔</span>
+              <span><i class="sw" style="background:var(--blue)"></i>b 中心孔</span>
+              <span><i class="sw" style="background:var(--accent)"></i>c 四角孔</span>
+              <span><i class="sw" style="background:var(--violet)"></i>d 左右边界孔</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">孔隙率分布</div><span class="chip" id="porosity-summary"></span></div>
+        <div class="panel-body"><canvas class="chart" id="hist-canvas"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-top:10px">
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">长短轴比箱线图</div><span class="chip">长轴 / 短轴</span></div>
+        <div class="panel-body"><canvas class="chart short" id="box-canvas"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">孔隙率与最大长短轴比</div><span class="chip">颜色 = 面积主导孔</span></div>
+        <div class="panel-body"><canvas class="chart short" id="scatter-canvas"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-top:10px">
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">面积贡献分布</div><span class="chip">折算到单胞面积</span></div>
+        <div class="panel-body"><canvas class="chart short" id="contrib-canvas"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">相关矩阵</div><span class="chip">Pearson r</span></div>
+        <div class="panel-body"><canvas class="chart short" id="corr-canvas"></canvas></div>
+      </div>
+    </div>
+
+    <div class="tables">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">极端样本</div>
+          <div class="panel-tools">
+            <label class="small">排序指标</label><select id="metric-select"></select>
+            <label class="small">显示前</label><input id="top-n" type="number" value="12" min="3" max="50">
+            <span class="chip" id="metric-title"></span>
+          </div>
+        </div>
+        <div class="panel-body" style="max-height:360px;overflow:auto"><table id="extreme-table"></table></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">分组统计汇总</div><span class="chip">全部样本</span></div>
+        <div class="panel-body" style="max-height:360px;overflow:auto"><table id="summary-table"></table></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const L=20;
+const CELL_AREA=L*L;
+const GROUPS=[
+  {key:'a',label:'a 上下边界孔',short:'a',color:'#ff8a4c',centers:[[0,0],[0,L]],dash:[6,4]},
+  {key:'b',label:'b 中心孔',short:'b',color:'#4da3ff',centers:[[0,L/2]],dash:[]},
+  {key:'c',label:'c 四角孔',short:'c',color:'#00d4aa',centers:[[L/2,0],[-L/2,0],[-L/2,L],[L/2,L]],dash:[]},
+  {key:'d',label:'d 左右边界孔',short:'d',color:'#b68cff',centers:[[L/2,L/2],[-L/2,L/2]],dash:[2,3]}
+];
+const DUPLICATES={a:['a1'],c:['c1','c2','c3'],d:['d1']};
+const METRICS=[
+  {group:'总体',items:[['porosity','孔隙率'],['maxAspect','最大长短轴比']]},
+  {group:'长短轴比',items:[['a_aspect','a 孔'],['b_aspect','b 孔'],['c_aspect','c 孔'],['d_aspect','d 孔']]},
+  {group:'面积占比',items:[['a_areaFrac','a 孔'],['b_areaFrac','b 孔'],['c_areaFrac','c 孔'],['d_areaFrac','d 孔']]},
+  {group:'检查项',items:[['duplicateError','重复孔误差']]}
+];
+let rows=[],headers=[],selected=0;
+const $=id=>document.getElementById(id);
+
+function fmt(v,d=3){return Number.isFinite(v)?v.toFixed(d):'无'}
+function pct(v,d=2){return Number.isFinite(v)?(100*v).toFixed(d)+'%':'无'}
+function parseCSV(text){
+  const lines=text.trim().split(/\r?\n/).filter(Boolean);
+  const header=lines.shift().split(',').map(s=>s.trim());
+  const out=lines.map((line,idx)=>{
+    const vals=line.split(',').map(s=>s.trim());
+    const obj={_index:idx};
+    header.forEach((h,i)=>obj[h]=Number(vals[i]));
+    return obj;
+  });
+  return {header,rows:out};
+}
+function readEllipse(row,prefix){
+  const ox=row[`${prefix}_ox`], oy=row[`${prefix}_oy`];
+  const ax=row[`${prefix}_ax`], ay=row[`${prefix}_ay`];
+  const bx=row[`${prefix}_bx`], by=row[`${prefix}_by`];
+  const avec={x:ax-ox,y:ay-oy}, bvec={x:bx-ox,y:by-oy};
+  const al=Math.hypot(avec.x,avec.y), bl=Math.hypot(bvec.x,bvec.y);
+  const major=Math.max(al,bl), minor=Math.min(al,bl);
+  const majorVec=al>=bl?avec:bvec;
+  const minorVec=al>=bl?bvec:avec;
+  const theta=(Math.atan2(majorVec.y,majorVec.x)*180/Math.PI+360)%360;
+  return {ox,oy,major,minor,aspect:major/Math.max(minor,1e-12),theta,area:Math.PI*major*minor,majorVec,minorVec};
+}
+function enrichRow(row){
+  const holes={};
+  GROUPS.forEach(g=>holes[g.key]=readEllipse(row,g.key));
+  const area=GROUPS.reduce((s,g)=>s+holes[g.key].area,0);
+  const porosity=area/CELL_AREA;
+  const aspects=GROUPS.map(g=>holes[g.key].aspect);
+  const areas=GROUPS.map(g=>holes[g.key].area);
+  const dominant=GROUPS[areas.indexOf(Math.max(...areas))].key;
+  const duplicateError=duplicateErrorForRow(row,holes);
+  const out={index:row._index,raw:row,holes,totalHoleArea:area,porosity,maxAspect:Math.max(...aspects),meanAspect:mean(aspects),dominant,duplicateError};
+  GROUPS.forEach(g=>{
+    out[`${g.key}_major`]=holes[g.key].major;
+    out[`${g.key}_minor`]=holes[g.key].minor;
+    out[`${g.key}_aspect`]=holes[g.key].aspect;
+    out[`${g.key}_area`]=holes[g.key].area;
+    out[`${g.key}_areaFrac`]=holes[g.key].area/CELL_AREA;
+    out[`${g.key}_theta`]=holes[g.key].theta;
+  });
+  return out;
+}
+function duplicateErrorForRow(row,holes){
+  let maxErr=0;
+  for(const [base,dups] of Object.entries(DUPLICATES)){
+    dups.forEach(p=>{
+      if(!Number.isFinite(row[`${p}_ox`]))return;
+      const h=readEllipse(row,p);
+      maxErr=Math.max(maxErr,Math.abs(h.major-holes[base].major),Math.abs(h.minor-holes[base].minor),axisAngleDiff(h.theta,holes[base].theta)/180);
+    });
+  }
+  return maxErr;
+}
+function axisAngleDiff(a,b){return Math.abs((((a-b+90)%180)+180)%180-90)}
+function mean(a){return a.length?a.reduce((s,v)=>s+v,0)/a.length:0}
+function quantile(values,q){
+  const a=values.filter(Number.isFinite).slice().sort((x,y)=>x-y);
+  if(!a.length)return NaN;
+  const pos=(a.length-1)*q, lo=Math.floor(pos), hi=Math.ceil(pos);
+  return lo===hi?a[lo]:a[lo]+(a[hi]-a[lo])*(pos-lo);
+}
+function std(a){const m=mean(a);return Math.sqrt(mean(a.map(v=>(v-m)*(v-m))))}
+function stat(values){
+  const a=values.filter(Number.isFinite);
+  return {n:a.length,min:Math.min(...a),q1:quantile(a,.25),median:quantile(a,.5),q3:quantile(a,.75),max:Math.max(...a),mean:mean(a),std:std(a),p01:quantile(a,.01),p99:quantile(a,.99)};
+}
+function corr(xs,ys){
+  const pairs=xs.map((x,i)=>[x,ys[i]]).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
+  if(pairs.length<2)return 0;
+  const mx=mean(pairs.map(p=>p[0])), my=mean(pairs.map(p=>p[1]));
+  let num=0,dx=0,dy=0;
+  pairs.forEach(([x,y])=>{const a=x-mx,b=y-my;num+=a*b;dx+=a*a;dy+=b*b});
+  return dx&&dy?num/Math.sqrt(dx*dy):0;
+}
+
+function initMetricSelect(){
+  $('metric-select').innerHTML=METRICS.map(group=>`<optgroup label="${group.group}">${group.items.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</optgroup>`).join('');
+  $('metric-select').value='porosity';
+}
+function metricLabel(key){
+  for(const group of METRICS){
+    const item=group.items.find(([value])=>value===key);
+    if(item)return item[1];
+  }
+  return key;
+}
+function loadData(text,name){
+  const parsed=parseCSV(text);
+  headers=parsed.header;
+  rows=parsed.rows.map(enrichRow);
+  selected=0;
+  $('upload-label').classList.add('loaded');
+  $('file-name').textContent=name||'CSV 已加载';
+  $('welcome').style.display='none';
+  $('app').classList.add('visible');
+  $('export-btn').disabled=false;
+  renderAll();
+}
+function renderAll(){
+  renderKpis();
+  drawSelected(selected);
+  drawHistogram();
+  drawBoxplots();
+  drawScatter();
+  drawContrib();
+  drawCorr();
+  renderExtremeTable();
+  renderSummaryTable();
+}
+function renderKpis(){
+  const ps=rows.map(r=>r.porosity), maxA=rows.map(r=>r.maxAspect), dup=rows.map(r=>r.duplicateError);
+  const s=stat(ps), a=stat(maxA);
+  const dom=Object.fromEntries(GROUPS.map(g=>[g.key,0])); rows.forEach(r=>dom[r.dominant]++);
+  const domKey=Object.entries(dom).sort((x,y)=>y[1]-x[1])[0][0];
+  const cards=[
+    ['样本数',rows.length,'条几何记录'],
+    ['平均孔隙率',pct(s.mean),'中位数 '+pct(s.median)],
+    ['孔隙率范围',pct(s.min)+' - '+pct(s.max),'p01-p99 '+pct(s.p01)+' - '+pct(s.p99)],
+    ['平均最大轴比',fmt(a.mean,2),'p99 '+fmt(a.p99,2)],
+    ['面积主导孔',domKey,dom[domKey]+' 条样本'],
+    ['重复孔检查',fmt(Math.max(...dup),2),'0 表示周期重复孔完全一致']
+  ];
+  $('kpis').innerHTML=cards.map(c=>`<div class="kpi"><div class="name">${c[0]}</div><div class="value">${c[1]}</div><div class="sub">${c[2]}</div></div>`).join('');
+  $('porosity-summary').textContent=`均值 ${pct(s.mean)} / 标准差 ${pct(s.std)}`;
+}
+
+function canvasSetup(id){
+  const c=$(id), dpr=Math.min(devicePixelRatio||1,2);
+  const rect=c.getBoundingClientRect();
+  const w=Math.max(300,Math.round(rect.width)), h=Math.max(160,Math.round(rect.height));
+  c.width=w*dpr; c.height=h*dpr;
+  const ctx=c.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h); ctx.fillStyle='#0f1318'; ctx.fillRect(0,0,w,h);
+  return {c,ctx,w,h};
+}
+function axes(ctx,w,h,p={l:42,r:14,t:14,b:32}){
+  ctx.strokeStyle='#26303a'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(p.l,p.t); ctx.lineTo(p.l,h-p.b); ctx.lineTo(w-p.r,h-p.b); ctx.stroke();
+  return p;
+}
+function drawText(ctx,text,x,y,align='left',color='#8290a1',font='10px ui-monospace,monospace'){
+  ctx.fillStyle=color; ctx.font=font; ctx.textAlign=align; ctx.fillText(text,x,y);
+}
+function drawHistogram(){
+  const {ctx,w,h}=canvasSetup('hist-canvas'), p=axes(ctx,w,h);
+  const vals=rows.map(r=>r.porosity), s=stat(vals), bins=30;
+  const lo=s.min, hi=s.max||1, counts=Array(bins).fill(0);
+  vals.forEach(v=>{const i=Math.min(bins-1,Math.max(0,Math.floor((v-lo)/(hi-lo||1)*bins))); counts[i]++});
+  const maxC=Math.max(...counts,1), bw=(w-p.l-p.r)/bins;
+  counts.forEach((c,i)=>{
+    const x=p.l+i*bw, bh=(h-p.t-p.b)*c/maxC;
+    ctx.fillStyle='#00d4aa88'; ctx.fillRect(x+1,h-p.b-bh,Math.max(1,bw-2),bh);
+  });
+  drawText(ctx,pct(lo),p.l,h-10,'left'); drawText(ctx,pct(hi),w-p.r,h-10,'right');
+  drawText(ctx,'数量',8,16,'left'); drawText(ctx,'孔隙率',w/2,h-10,'center');
+}
+function drawBoxplots(){
+  const {ctx,w,h}=canvasSetup('box-canvas'), p=axes(ctx,w,h,{l:34,r:18,t:18,b:32});
+  const stats=GROUPS.map(g=>({g,s:stat(rows.map(r=>r[`${g.key}_aspect`]))}));
+  const ymax=Math.max(...stats.map(x=>x.s.p99))*1.08, ymin=1;
+  const mapY=v=>h-p.b-(v-ymin)/(ymax-ymin||1)*(h-p.t-p.b);
+  stats.forEach((x,i)=>{
+    const cx=p.l+(i+.5)*(w-p.l-p.r)/stats.length, bw=Math.min(56,(w-p.l-p.r)/stats.length*.45);
+    ctx.strokeStyle=x.g.color; ctx.fillStyle=x.g.color+'33'; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(cx,mapY(x.s.p01)); ctx.lineTo(cx,mapY(x.s.p99)); ctx.stroke();
+    ctx.fillRect(cx-bw/2,mapY(x.s.q3),bw,mapY(x.s.q1)-mapY(x.s.q3));
+    ctx.strokeRect(cx-bw/2,mapY(x.s.q3),bw,mapY(x.s.q1)-mapY(x.s.q3));
+    ctx.strokeStyle='#e7edf4'; ctx.beginPath(); ctx.moveTo(cx-bw/2,mapY(x.s.median)); ctx.lineTo(cx+bw/2,mapY(x.s.median)); ctx.stroke();
+    drawText(ctx,x.g.short,cx,h-11,'center',x.g.color,'11px ui-monospace,monospace');
+  });
+  drawText(ctx,fmt(ymax,1),8,p.t+4); drawText(ctx,'1.0',8,h-p.b);
+}
+function drawScatter(){
+  const {ctx,w,h}=canvasSetup('scatter-canvas'), p=axes(ctx,w,h,{l:42,r:16,t:15,b:34});
+  const xs=rows.map(r=>r.porosity), ys=rows.map(r=>r.maxAspect);
+  const sx=stat(xs), sy=stat(ys);
+  const mapX=v=>p.l+(v-sx.min)/(sx.max-sx.min||1)*(w-p.l-p.r);
+  const mapY=v=>h-p.b-(v-sy.min)/(sy.max-sy.min||1)*(h-p.t-p.b);
+  rows.forEach(r=>{
+    const g=GROUPS.find(g=>g.key===r.dominant);
+    ctx.fillStyle=(g?g.color:'#00d4aa')+'77';
+    ctx.beginPath(); ctx.arc(mapX(r.porosity),mapY(r.maxAspect),2,0,Math.PI*2); ctx.fill();
+  });
+  drawText(ctx,pct(sx.min),p.l,h-10,'left'); drawText(ctx,pct(sx.max),w-p.r,h-10,'right');
+  drawText(ctx,'最大轴比',8,16); drawText(ctx,'孔隙率',w/2,h-10,'center');
+}
+function drawContrib(){
+  const {ctx,w,h}=canvasSetup('contrib-canvas'), p=axes(ctx,w,h,{l:42,r:16,t:15,b:34});
+  const labels=GROUPS, means=labels.map(g=>mean(rows.map(r=>r[`${g.key}_areaFrac`])));
+  const maxV=Math.max(...means)*1.25, bw=(w-p.l-p.r)/labels.length*.55;
+  labels.forEach((g,i)=>{
+    const cx=p.l+(i+.5)*(w-p.l-p.r)/labels.length, bh=(h-p.t-p.b)*means[i]/maxV;
+    ctx.fillStyle=g.color+'aa'; ctx.fillRect(cx-bw/2,h-p.b-bh,bw,bh);
+    drawText(ctx,pct(means[i],1),cx,h-p.b-bh-5,'center','#e7edf4');
+    drawText(ctx,g.short,cx,h-11,'center',g.color);
+  });
+  drawText(ctx,'平均单胞面积占比',8,16);
+}
+function drawCorr(){
+  const {ctx,w,h}=canvasSetup('corr-canvas');
+  const vars=[
+    ['孔隙率',rows.map(r=>r.porosity)],['最大轴比',rows.map(r=>r.maxAspect)],
+    ['a轴比',rows.map(r=>r.a_aspect)],['b轴比',rows.map(r=>r.b_aspect)],['c轴比',rows.map(r=>r.c_aspect)],['d轴比',rows.map(r=>r.d_aspect)]
+  ];
+  const n=vars.length, size=Math.min((w-92)/n,(h-45)/n), x0=66, y0=14;
+  for(let i=0;i<n;i++){
+    drawText(ctx,vars[i][0],x0+i*size+size/2,h-10,'center');
+    drawText(ctx,vars[i][0],8,y0+i*size+size/2+3,'left');
+    for(let j=0;j<n;j++){
+      const r=corr(vars[i][1],vars[j][1]);
+      const pos=Math.max(0,r), neg=Math.max(0,-r);
+      const rr=Math.round(40+80*neg), gg=Math.round(40+140*pos), bb=Math.round(58+120*pos);
+      ctx.fillStyle=`rgb(${rr},${gg},${bb})`; ctx.fillRect(x0+j*size,y0+i*size,size-2,size-2);
+      drawText(ctx,fmt(r,2),x0+j*size+size/2,y0+i*size+size/2+3,'center','#e7edf4','9px ui-monospace,monospace');
+    }
+  }
+}
+function drawSelected(idx){
+  selected=Math.max(0,Math.min(rows.length-1,idx));
+  const r=rows[selected];
+  drawGeometry(r);
+  $('sample-chips').innerHTML=`<span class="chip">#${r.index}</span><span class="chip">孔隙率 ${pct(r.porosity)}</span><span class="chip">主导孔 ${r.dominant}</span>`;
+  const items=[
+    ['孔隙率',pct(r.porosity)],['孔总面积',fmt(r.totalHoleArea,3)],
+    ['最大长短轴比',fmt(r.maxAspect,3)],['平均长短轴比',fmt(r.meanAspect,3)],
+    ['a 轴比 / 面积占比',fmt(r.a_aspect,2)+' / '+pct(r.a_areaFrac)],['b 轴比 / 面积占比',fmt(r.b_aspect,2)+' / '+pct(r.b_areaFrac)],
+    ['c 轴比 / 面积占比',fmt(r.c_aspect,2)+' / '+pct(r.c_areaFrac)],['d 轴比 / 面积占比',fmt(r.d_aspect,2)+' / '+pct(r.d_areaFrac)],
+    ['a 角度 / b 角度',fmt(r.a_theta,1)+' / '+fmt(r.b_theta,1)],['c 角度 / d 角度',fmt(r.c_theta,1)+' / '+fmt(r.d_theta,1)],
+    ['重复孔误差',fmt(r.duplicateError,6)],['行号',String(r.index)]
+  ];
+  $('sample-stats').innerHTML=items.map(x=>`<div class="stat"><div class="name">${x[0]}</div><div class="value">${x[1]}</div></div>`).join('');
+}
+function drawGeometry(r){
+  const c=$('sample-canvas'), dpr=Math.min(devicePixelRatio||1,2), rect=c.getBoundingClientRect();
+  const w=Math.max(240,Math.round(rect.width)), h=Math.max(240,Math.round(rect.height));
+  c.width=w*dpr; c.height=h*dpr; const ctx=c.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle='#0f1318'; ctx.fillRect(0,0,w,h);
+  const pad=28, size=Math.min(w-2*pad,h-2*pad), ox=(w-size)/2, oy=(h-size)/2, sc=size/L;
+  const toCanvas=(x,y)=>[ox+(x+L/2)*sc, oy+(L-y)*sc];
+  ctx.fillStyle='#8c9bad'; ctx.fillRect(ox,oy,size,size);
+  ctx.strokeStyle='#26303a'; ctx.lineWidth=1; for(let i=1;i<=3;i++){const x=ox+i*size/4;ctx.beginPath();ctx.moveTo(x,oy);ctx.lineTo(x,oy+size);ctx.stroke()}
+  ctx.save(); ctx.beginPath(); ctx.rect(ox,oy,size,size); ctx.clip();
+  GROUPS.forEach(g=>{
+    const h0=r.holes[g.key];
+    g.centers.forEach(([cx,cy])=>{
+      const [px,py]=toCanvas(cx,cy);
+      ctx.save(); ctx.translate(px,py); ctx.rotate(-h0.theta*Math.PI/180);
+      ctx.beginPath(); ctx.ellipse(0,0,h0.major*sc,h0.minor*sc,0,0,Math.PI*2);
+      ctx.fillStyle='#101820'; ctx.fill(); ctx.strokeStyle=g.color; ctx.lineWidth=1.4; ctx.setLineDash(g.dash); ctx.stroke();
+      ctx.restore();
+    });
+  });
+  ctx.restore();
+  ctx.strokeStyle='#00d4aa'; ctx.lineWidth=1.5; ctx.strokeRect(ox,oy,size,size);
+}
+function renderExtremeTable(){
+  const key=$('metric-select').value, n=Number($('top-n').value)||12;
+  $('metric-title').textContent=metricLabel(key);
+  const sorted=rows.slice().sort((a,b)=>(b[key]??0)-(a[key]??0)).slice(0,n);
+  const html=['<thead><tr><th>行号</th><th>指标值</th><th>孔隙率</th><th>最大轴比</th><th>主导孔</th></tr></thead><tbody>'];
+  sorted.forEach(r=>html.push(`<tr data-idx="${r.index}"><td>#${r.index}</td><td>${key.includes('Frac')||key==='porosity'?pct(r[key]):fmt(r[key],3)}</td><td>${pct(r.porosity)}</td><td>${fmt(r.maxAspect,2)}</td><td>${r.dominant}</td></tr>`));
+  html.push('</tbody>'); $('extreme-table').innerHTML=html.join('');
+  $('extreme-table').querySelectorAll('tr[data-idx]').forEach(tr=>tr.addEventListener('click',()=>drawSelected(Number(tr.dataset.idx))));
+}
+function renderSummaryTable(){
+  const html=['<thead><tr><th>指标</th><th>均值</th><th>标准差</th><th>最小值</th><th>中位数</th><th>p99</th><th>最大值</th></tr></thead><tbody>'];
+  const add=(name,vals,percent=false)=>{const s=stat(vals); html.push(`<tr><td>${name}</td><td>${percent?pct(s.mean):fmt(s.mean,3)}</td><td>${percent?pct(s.std):fmt(s.std,3)}</td><td>${percent?pct(s.min):fmt(s.min,3)}</td><td>${percent?pct(s.median):fmt(s.median,3)}</td><td>${percent?pct(s.p99):fmt(s.p99,3)}</td><td>${percent?pct(s.max):fmt(s.max,3)}</td></tr>`)};
+  add('孔隙率',rows.map(r=>r.porosity),true);
+  GROUPS.forEach(g=>add(`${g.key} 孔长短轴比`,rows.map(r=>r[`${g.key}_aspect`])));
+  GROUPS.forEach(g=>add(`${g.key} 孔面积占比`,rows.map(r=>r[`${g.key}_areaFrac`]),true));
+  add('重复孔误差',rows.map(r=>r.duplicateError));
+  html.push('</tbody>'); $('summary-table').innerHTML=html.join('');
+}
+function exportStats(){
+  const cols=['index','porosity','totalHoleArea','maxAspect','meanAspect','dominant','duplicateError'];
+  GROUPS.forEach(g=>cols.push(`${g.key}_major`,`${g.key}_minor`,`${g.key}_aspect`,`${g.key}_area`,`${g.key}_areaFrac`,`${g.key}_theta`));
+  const lines=[cols.join(',')].concat(rows.map(r=>cols.map(c=>r[c]).join(',')));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));
+  a.download='hole_geometry_stats.csv'; a.click();
+}
+
+initMetricSelect();
+$('file-input').addEventListener('change',e=>{const f=e.target.files[0]; if(!f)return; const rd=new FileReader(); rd.onload=ev=>loadData(ev.target.result,f.name); rd.readAsText(f);});
+$('metric-select').addEventListener('change',renderExtremeTable);
+$('top-n').addEventListener('change',renderExtremeTable);
+$('export-btn').addEventListener('click',exportStats);
+window.addEventListener('resize',()=>{if(rows.length)renderAll()});
+</script>
+<script src="site-nav.js" data-current="hole_geometry_stats.html"></script>
+</body>
+</html>
