@@ -71,8 +71,14 @@
   #sample-canvas{width:100%;height:260px;background:#0f1318;border-radius:6px;display:block}
   .stat-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
   .stat{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 8px}
+  .stat.extreme-high{border-color:var(--red);background:#2a1720}
+  .stat.extreme-low{border-color:var(--blue);background:#132235}
   .stat .name{font:9px var(--mono);color:var(--muted)}
   .stat .value{font:13px var(--mono);color:var(--text);margin-top:2px}
+  .stat .flag{display:inline-block;margin-left:5px;border-radius:999px;padding:1px 5px;font:8px var(--mono);vertical-align:1px}
+  .stat.extreme-high .flag{background:#ff5d7330;color:#ff9aaa}
+  .stat.extreme-low .flag{background:#4da3ff30;color:#9ed0ff}
+  .stat .rank{font:9px var(--mono);color:var(--muted);margin-top:3px}
   .chips{display:flex;gap:5px;flex-wrap:wrap}
   .chip{font:10px var(--mono);border:1px solid var(--line);border-radius:999px;padding:4px 7px;color:var(--muted)}
   .legend{display:flex;gap:10px;flex-wrap:wrap;font:10px var(--mono);color:var(--muted)}
@@ -333,6 +339,30 @@ function stat(values){
   const a=values.filter(Number.isFinite);
   return {n:a.length,min:Math.min(...a),q1:quantile(a,.25),median:quantile(a,.5),q3:quantile(a,.75),max:Math.max(...a),mean:mean(a),std:std(a),p01:quantile(a,.01),p99:quantile(a,.99)};
 }
+function percentileRank(values,value){
+  const a=values.filter(Number.isFinite).slice().sort((x,y)=>x-y);
+  if(!a.length||!Number.isFinite(value))return NaN;
+  let below=0,equal=0;
+  for(const v of a){
+    if(v<value)below++;
+    else if(v===value)equal++;
+  }
+  return (below+0.5*equal)/a.length;
+}
+function metricExtreme(key,value){
+  const rank=percentileRank(rows.map(r=>r[key]),value);
+  if(!Number.isFinite(rank)||rows.length<5)return null;
+  if(rank>=0.95)return {level:'high',label:'高极端',rank};
+  if(rank<=0.05)return {level:'low',label:'低极端',rank};
+  return {level:'normal',label:'',rank};
+}
+function sampleMetric(name,key,value,formatter=fmt){
+  const ext=metricExtreme(key,value);
+  const cls=ext&&ext.level!=='normal'?` extreme-${ext.level}`:'';
+  const flag=ext&&ext.level!=='normal'?`<span class="flag">${ext.label}</span>`:'';
+  const rank=ext?`<div class="rank">分位 ${pct(ext.rank,1)}</div>`:'';
+  return `<div class="stat${cls}"><div class="name">${name}${flag}</div><div class="value">${formatter(value)}</div>${rank}</div>`;
+}
 function corr(xs,ys){
   const pairs=xs.map((x,i)=>[x,ys[i]]).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
   if(pairs.length<2)return 0;
@@ -589,15 +619,24 @@ function drawSelected(idx){
   const r=rows[selected];
   drawGeometry(r);
   $('sample-chips').innerHTML=`<span class="chip">统计 #${r.index}</span><span class="chip">${r.source} 原始 #${r.sourceIndex}</span><span class="chip">孔隙率 ${pct(r.porosity)}</span><span class="chip">主导孔 ${r.dominant}</span>`;
-  const items=[
-    ['孔隙率',pct(r.porosity)],['孔总面积',fmt(r.totalHoleArea,3)],
-    ['最大长短轴比',fmt(r.maxAspect,3)],['平均长短轴比',fmt(r.meanAspect,3)],
-    ['a 轴比 / 面积占比',fmt(r.a_aspect,2)+' / '+pct(r.a_areaFrac)],['b 轴比 / 面积占比',fmt(r.b_aspect,2)+' / '+pct(r.b_areaFrac)],
-    ['c 轴比 / 面积占比',fmt(r.c_aspect,2)+' / '+pct(r.c_areaFrac)],['d 轴比 / 面积占比',fmt(r.d_aspect,2)+' / '+pct(r.d_areaFrac)],
-    ['a 角度 / b 角度',fmt(r.a_theta,1)+' / '+fmt(r.b_theta,1)],['c 角度 / d 角度',fmt(r.c_theta,1)+' / '+fmt(r.d_theta,1)],
-    ['重复孔误差',fmt(r.duplicateError,6)],['统计行 / 原始行',`${r.index} / ${r.sourceIndex}`]
-  ];
-  $('sample-stats').innerHTML=items.map(x=>`<div class="stat"><div class="name">${x[0]}</div><div class="value">${x[1]}</div></div>`).join('');
+  $('sample-stats').innerHTML=[
+    sampleMetric('孔隙率','porosity',r.porosity,pct),
+    sampleMetric('孔总面积','totalHoleArea',r.totalHoleArea,v=>fmt(v,3)),
+    sampleMetric('最大长短轴比','maxAspect',r.maxAspect,v=>fmt(v,3)),
+    sampleMetric('平均长短轴比','meanAspect',r.meanAspect,v=>fmt(v,3)),
+    sampleMetric('a 轴比','a_aspect',r.a_aspect,v=>fmt(v,2)),
+    sampleMetric('a 面积占比','a_areaFrac',r.a_areaFrac,pct),
+    sampleMetric('b 轴比','b_aspect',r.b_aspect,v=>fmt(v,2)),
+    sampleMetric('b 面积占比','b_areaFrac',r.b_areaFrac,pct),
+    sampleMetric('c 轴比','c_aspect',r.c_aspect,v=>fmt(v,2)),
+    sampleMetric('c 面积占比','c_areaFrac',r.c_areaFrac,pct),
+    sampleMetric('d 轴比','d_aspect',r.d_aspect,v=>fmt(v,2)),
+    sampleMetric('d 面积占比','d_areaFrac',r.d_areaFrac,pct),
+    `<div class="stat"><div class="name">a 角度 / b 角度</div><div class="value">${fmt(r.a_theta,1)} / ${fmt(r.b_theta,1)}</div></div>`,
+    `<div class="stat"><div class="name">c 角度 / d 角度</div><div class="value">${fmt(r.c_theta,1)} / ${fmt(r.d_theta,1)}</div></div>`,
+    sampleMetric('重复孔误差','duplicateError',r.duplicateError,v=>fmt(v,6)),
+    `<div class="stat"><div class="name">统计行 / 原始行</div><div class="value">${r.index} / ${r.sourceIndex}</div></div>`
+  ].join('');
   updateExtremeSelection();
 }
 function drawGeometry(r){
