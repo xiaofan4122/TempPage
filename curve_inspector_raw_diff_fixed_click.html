@@ -1,160 +1,209 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Metamaterial Curve Inspector</title>
-<link rel="stylesheet" href="site-nav.css">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Metamaterial Curve + Feature Inspector</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@300;400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@300;400;500;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #0a0c0f; --surface: #111418; --surface2: #181c22;
-    --border: #1e242e; --accent: #00d4aa; --accent2: #0088ff;
-    --warn: #ff6b35; --text: #e2e8f0; --muted: #64748b;
-    --mono: 'JetBrains Mono', monospace; --sans: 'DM Sans', sans-serif;
+    --bg: #090b0f;
+    --surface: #11151b;
+    --surface2: #171d26;
+    --surface3: #1d2530;
+    --border: #253041;
+    --border2: #334155;
+    --accent: #00d4aa;
+    --accent2: #38bdf8;
+    --warn: #fb7185;
+    --hot: #f59e0b;
+    --purple: #c084fc;
+    --green: #22c55e;
+    --text: #e5edf7;
+    --muted: #7b8aa1;
+    --faint: #45556d;
+    --mono: 'JetBrains Mono', 'Consolas', monospace;
+    --sans: 'DM Sans', 'Inter', 'Microsoft YaHei', sans-serif;
   }
-  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; overflow-x: hidden; }
-
+  body {
+    background:
+      radial-gradient(circle at 10% 0%, rgba(0,212,170,.07), transparent 35%),
+      radial-gradient(circle at 90% 10%, rgba(56,189,248,.08), transparent 32%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
   header {
     position: sticky; top: 0; z-index: 100;
-    background: rgba(10,12,15,0.95); backdrop-filter: blur(12px);
+    background: rgba(9,11,15,.93); backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--border);
-    padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 14px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+    align-items: center;
   }
-  .logo { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--accent); letter-spacing: .08em; white-space: nowrap; }
-  .upload-zone { display: flex; gap: 8px; flex-wrap: wrap; }
+  .logo { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: .08em; white-space: nowrap; }
+  .upload-zone { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .upload-btn {
-    position: relative; display: flex; align-items: center; gap: 7px;
-    padding: 6px 12px; background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 10px;
-    cursor: pointer; transition: border-color .2s, background .2s; white-space: nowrap;
+    position: relative; display: inline-flex; align-items: center; gap: 7px; min-height: 30px;
+    padding: 6px 10px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: var(--mono); font-size: 10px;
+    cursor: pointer; transition: border-color .2s, background .2s, transform .1s; white-space: nowrap;
   }
-  .upload-btn:hover { border-color: var(--accent); background: #1a2830; }
+  .upload-btn:hover { border-color: var(--accent); background: #172932; transform: translateY(-1px); }
   .upload-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-  .upload-btn .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; transition: background .3s; }
-  .upload-btn.loaded .dot { background: var(--accent); }
-  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+  .upload-btn .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; transition: background .3s, box-shadow .3s; }
+  .upload-btn.loaded .dot { background: var(--accent); box-shadow: 0 0 10px rgba(0,212,170,.55); }
+  .upload-btn .file-name { max-width: 210px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle; }
+  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
   .ctrl-label { font-family: var(--mono); font-size: 10px; color: var(--muted); }
   select, input[type=number] {
     background: var(--surface2); border: 1px solid var(--border); color: var(--text);
-    font-family: var(--mono); font-size: 10px; border-radius: 5px; padding: 4px 7px;
-    outline: none; transition: border-color .2s;
+    font-family: var(--mono); font-size: 10px; border-radius: 7px; padding: 5px 8px;
+    outline: none; transition: border-color .2s, background .2s;
   }
-  select:focus, input[type=number]:focus { border-color: var(--accent); }
-  input[type=number] { width: 52px; }
-  .view-toggle { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-  .vt-btn { padding: 5px 12px; background: var(--surface2); border: none; color: var(--muted); font-family: var(--mono); font-size: 10px; cursor: pointer; transition: all .2s; }
-  .vt-btn.active { background: var(--accent); color: #000; font-weight: 600; }
-  .vt-btn:hover:not(.active) { background: var(--surface); color: var(--text); }
-  .btn { padding: 6px 14px; background: var(--accent); color: #000; font-family: var(--mono); font-size: 10px; font-weight: 600; border: none; border-radius: 6px; cursor: pointer; transition: opacity .2s, transform .1s; }
-  .btn:hover { opacity: .85; } .btn:active { transform: scale(.97); } .btn:disabled { opacity: .35; cursor: default; }
+  select:focus, input[type=number]:focus { border-color: var(--accent); background: #13222b; }
+  input[type=number] { width: 58px; }
+  .view-toggle { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .vt-btn { padding: 6px 10px; background: var(--surface2); border: none; border-right: 1px solid var(--border); color: var(--muted); font-family: var(--mono); font-size: 10px; cursor: pointer; transition: all .2s; }
+  .vt-btn:last-child { border-right: none; }
+  .vt-btn.active { background: var(--accent); color: #00110d; font-weight: 700; }
+  .vt-btn:hover:not(.active) { background: var(--surface3); color: var(--text); }
+  .btn { padding: 7px 13px; background: var(--accent); color: #00110d; font-family: var(--mono); font-size: 10px; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; transition: opacity .2s, transform .1s; }
+  .btn:hover { opacity: .86; } .btn:active { transform: scale(.97); } .btn:disabled { opacity: .35; cursor: default; }
   .btn-outline { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
   .btn-outline:hover { background: rgba(0,212,170,.08); }
 
-  #stats-bar { display: none; background: var(--surface); border-bottom: 1px solid var(--border); padding: 6px 16px; gap: 20px; flex-wrap: wrap; align-items: center; font-family: var(--mono); font-size: 10px; }
+  #stats-bar { display: none; background: rgba(17,21,27,.92); border-bottom: 1px solid var(--border); padding: 7px 16px; gap: 18px; flex-wrap: wrap; align-items: center; font-family: var(--mono); font-size: 10px; }
   #stats-bar.visible { display: flex; }
   .stat-item { display: flex; gap: 5px; align-items: center; }
-  .stat-val { color: var(--accent); font-weight: 600; } .stat-label { color: var(--muted); }
+  .stat-val { color: var(--accent); font-weight: 700; } .stat-label { color: var(--muted); }
+  .subtle-tip { margin-left: auto; color: var(--muted); font-size: 9px; }
 
-  #scroll-hint { display: none; position: fixed; bottom: 20px; right: 20px; z-index: 50; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; font-family: var(--mono); font-size: 10px; color: var(--muted); pointer-events: none; opacity: 0; transition: opacity .4s; }
-  #scroll-hint.show { opacity: 1; }
   #drop-hint { position: fixed; inset: 0; z-index: 200; background: rgba(0,212,170,.06); border: 2px dashed var(--accent); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 18px; color: var(--accent); pointer-events: none; opacity: 0; transition: opacity .2s; }
   #drop-hint.active { opacity: 1; }
-  #loading { display: none; position: fixed; inset: 0; z-index: 400; background: rgba(10,12,15,.88); align-items: center; justify-content: center; flex-direction: column; gap: 14px; font-family: var(--mono); font-size: 13px; color: var(--accent); }
+  #loading { display: none; position: fixed; inset: 0; z-index: 400; background: rgba(9,11,15,.88); align-items: center; justify-content: center; flex-direction: column; gap: 14px; font-family: var(--mono); font-size: 13px; color: var(--accent); }
   #loading.visible { display: flex; }
-  .spinner { width: 30px; height: 30px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+  .spinner { width: 32px; height: 32px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  #welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - 57px); gap: 14px; padding: 40px; text-align: center; }
+  #welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - 58px); gap: 16px; padding: 42px; text-align: center; }
   #welcome h2 { font-family: var(--mono); font-size: 20px; color: var(--accent); letter-spacing: .05em; }
-  #welcome p { color: var(--muted); max-width: 420px; line-height: 1.7; }
+  #welcome p { color: var(--muted); max-width: 660px; line-height: 1.8; }
   .step-list { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
-  .step { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 18px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
-  .step span { color: var(--accent); display: block; font-size: 15px; margin-bottom: 3px; }
+  .step { background: linear-gradient(180deg, var(--surface2), var(--surface)); border: 1px solid var(--border); border-radius: 12px; padding: 12px 18px; font-family: var(--mono); font-size: 11px; color: var(--muted); min-width: 150px; }
+  .step span { color: var(--accent); display: block; font-size: 15px; margin-bottom: 4px; }
+  .tiny { font-size: 9px; color: var(--faint); }
 
-  #main { display: none; padding: 12px 16px; }
+  #main { display: none; padding: 12px 16px 24px; }
   #main.visible { display: block; }
   .page-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   .page-info { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-left: auto; }
-  #grid { display: grid; gap: 8px; grid-template-columns: repeat(var(--cols, 6), 1fr); }
+  #grid { display: grid; gap: 9px; grid-template-columns: repeat(var(--cols, 6), minmax(0, 1fr)); }
 
-  .card, .geo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; cursor: pointer; transition: border-color .15s, transform .15s; position: relative; }
-  .card:hover, .geo-card:hover { border-color: var(--accent2); transform: translateY(-1px); }
-  .card.flagged, .geo-card.flagged { border-color: var(--warn); }
-  .card-header { padding: 5px 9px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
-  .card-idx { font-family: var(--mono); font-size: 9px; color: var(--muted); }
-  .card-badges { display: flex; gap: 3px; }
-  .badge { font-family: var(--mono); font-size: 8px; padding: 1px 5px; border-radius: 3px; font-weight: 600; }
-  .badge-lin { background: rgba(0,212,170,.15); color: var(--accent); }
-  .badge-inc { background: rgba(0,136,255,.15); color: var(--accent2); }
-  .badge-dec { background: rgba(255,107,53,.15); color: var(--warn); }
-  .badge-s   { background: rgba(192,132,252,.15); color: #c084fc; }
-  .badge-warn { background: rgba(255,107,53,.2); color: var(--warn); }
-  canvas.mini { display: block; width: 100%; height: 86px; }
-  canvas.deriv-mini { display: block; width: 100%; height: 86px; }
-  canvas.geo-mini { display: block; width: 100%; height: 120px; }
-  .card-footer { padding: 3px 9px; font-family: var(--mono); font-size: 8px; color: var(--muted); display: flex; justify-content: space-between; }
-  .flag-btn { position: absolute; top: 4px; right: 5px; background: none; border: none; cursor: pointer; font-size: 11px; opacity: .25; transition: opacity .2s; line-height: 1; }
-  .flag-btn:hover { opacity: 1; }
-  .card.flagged .flag-btn, .geo-card.flagged .flag-btn { opacity: 1; }
+  .card, .geo-card, .feature-card { background: rgba(17,21,27,.95); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; cursor: pointer; transition: border-color .15s, transform .15s, box-shadow .15s; position: relative; min-width: 0; }
+  .card:hover, .geo-card:hover, .feature-card:hover { border-color: var(--accent2); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+  .card.flagged, .geo-card.flagged, .feature-card.flagged { border-color: var(--warn); }
+  .card-header { padding: 6px 9px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); gap: 6px; }
+  .card-idx { font-family: var(--mono); font-size: 9px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card-badges { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+  .badge { font-family: var(--mono); font-size: 8px; padding: 2px 6px; border-radius: 999px; font-weight: 700; letter-spacing: .02em; }
+  .badge-lin { background: rgba(76,155,232,.17); color: #7cc4ff; }
+  .badge-inc { background: rgba(34,197,94,.16); color: #4ade80; }
+  .badge-dec { background: rgba(251,113,133,.17); color: #fb7185; }
+  .badge-s   { background: rgba(240,165,0,.18); color: #fbbf24; }
+  .badge-sub { background: rgba(192,132,252,.15); color: #d8b4fe; }
+  .badge-warn { background: rgba(251,113,133,.20); color: var(--warn); }
+  canvas.mini { display: block; width: 100%; height: 90px; }
+  canvas.deriv-mini { display: block; width: 100%; height: 90px; }
+  canvas.geo-mini { display: block; width: 100%; height: 126px; }
+  canvas.feature-mini { display: block; width: 100%; height: 126px; }
+  .card-footer { padding: 4px 9px 6px; font-family: var(--mono); font-size: 8.5px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; min-height: 24px; }
+  .card-footer span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .flag-btn { position: absolute; top: 5px; right: 6px; background: none; border: none; cursor: pointer; font-size: 11px; opacity: .22; transition: opacity .2s, color .2s; line-height: 1; color: var(--muted); }
+  .flag-btn:hover { opacity: 1; color: var(--warn); }
+  .flagged .flag-btn { opacity: 1; color: var(--warn); }
 
-  #modal-overlay { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.72); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+  #map-panel { display: none; background: rgba(17,21,27,.95); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  #map-panel.visible { display: block; }
+  .map-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  #feature-map-canvas { width: 100%; height: min(68vh, 650px); display: block; border-radius: 8px; background: #0d1118; border: 1px solid var(--border); }
+  .legend-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; font-family: var(--mono); font-size: 9px; color: var(--muted); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 5px; vertical-align: -1px; }
+
+  #modal-overlay { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.72); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 18px; }
   #modal-overlay.open { display: flex; }
-  #modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; width: min(780px, 95vw); max-height: 90vh; overflow-y: auto; padding: 22px; }
-  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-  .modal-title-txt { font-family: var(--mono); font-size: 12px; color: var(--accent); }
-  .modal-tabs { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-  .mtab { padding: 5px 14px; background: var(--surface2); border: none; color: var(--muted); font-family: var(--mono); font-size: 10px; cursor: pointer; transition: all .2s; }
-  .mtab.active { background: var(--accent); color: #000; font-weight: 600; }
-  .close-btn { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; line-height: 1; }
+  #modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: min(980px, 96vw); max-height: 92vh; overflow-y: auto; padding: 18px; box-shadow: 0 20px 70px rgba(0,0,0,.45); }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px; }
+  .modal-title-txt { font-family: var(--mono); font-size: 12px; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .modal-tabs { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .mtab { padding: 6px 12px; background: var(--surface2); border: none; border-right: 1px solid var(--border); color: var(--muted); font-family: var(--mono); font-size: 10px; cursor: pointer; transition: all .2s; }
+  .mtab:last-child { border-right: none; }
+  .mtab.active { background: var(--accent); color: #00110d; font-weight: 700; }
+  .close-btn { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; line-height: 1; }
   .close-btn:hover { color: var(--text); }
-  #modal-curve-pane, #modal-geo-pane, #modal-deriv-pane { display: none; }
-  #modal-curve-pane.active, #modal-geo-pane.active, #modal-deriv-pane.active { display: block; }
-  #detail-canvas, #geo-detail-canvas, #deriv-detail-canvas { width: 100%; height: 240px; display: block; }
-  .param-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 7px; margin-top: 14px; }
-  .param-cell { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; }
-  .param-name { font-family: var(--mono); font-size: 8px; color: var(--muted); }
-  .param-val { font-family: var(--mono); font-size: 12px; color: var(--text); margin-top: 2px; }
-  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  .modal-pane { display: none; }
+  .modal-pane.active { display: block; }
+  #detail-canvas, #geo-detail-canvas, #deriv-detail-canvas, #feature-detail-canvas { width: 100%; height: 300px; display: block; background: #0d1118; border: 1px solid var(--border); border-radius: 8px; }
+  .param-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-top: 12px; }
+  .param-cell { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+  .param-name { font-family: var(--mono); font-size: 8px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .param-val { font-family: var(--mono); font-size: 12px; color: var(--text); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .section-title { font-family: var(--mono); color: var(--muted); font-size: 10px; margin-top: 13px; margin-bottom: 6px; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+  @media (max-width: 920px) {
+    header { grid-template-columns: 1fr; }
+    .controls { justify-content: flex-start; }
+    .subtle-tip { display: none; }
+  }
 </style>
 </head>
 <body>
-<div id="drop-hint">Drop X + Y CSV files here</div>
+<div id="drop-hint">Drop geometry + stress/strain + features CSV files here</div>
 <div id="loading"><div class="spinner"></div><span id="loading-msg">Loading…</span></div>
-<div id="scroll-hint">scroll wheel flips pages</div>
 
 <header>
-  <div class="logo">⬡ CURVE INSPECTOR</div>
+  <div class="logo">⬡ META INSPECTOR CSV</div>
   <div class="upload-zone">
-    <label class="upload-btn" id="btn-x"><div class="dot"></div>X_DATA (geometry)<input type="file" accept=".csv" id="file-x"></label>
-    <label class="upload-btn" id="btn-y"><div class="dot"></div>Y_DATA (stress–strain)<input type="file" accept=".csv" id="file-y"></label>
-    <label class="upload-btn" id="btn-f"><div class="dot"></div>FEATURES (JSON)<input type="file" accept=".json" id="file-f"></label>
+    <label class="upload-btn" id="btn-geo"><span class="dot"></span><span class="file-name">GEOMETRY CSV</span><input type="file" accept=".csv" id="file-geo"></label>
+    <label class="upload-btn" id="btn-stress"><span class="dot"></span><span class="file-name">STRESS / STRAIN CSV</span><input type="file" accept=".csv" id="file-stress"></label>
+    <label class="upload-btn" id="btn-feat"><span class="dot"></span><span class="file-name">FEATURES CSV</span><input type="file" accept=".csv" id="file-feat"></label>
   </div>
   <div class="controls">
     <div class="view-toggle">
       <button class="vt-btn active" id="vt-curve">CURVE</button>
-      <button class="vt-btn" id="vt-deriv">DERIVATIVE</button>
-      <button class="vt-btn" id="vt-geo">GEOMETRY</button>
+      <button class="vt-btn" id="vt-deriv">STIFF</button>
+      <button class="vt-btn" id="vt-geo">GEO</button>
+      <button class="vt-btn" id="vt-feature">FEATURE</button>
+      <button class="vt-btn" id="vt-map">MAP</button>
     </div>
     <span class="ctrl-label">cols</span><input type="number" id="ctrl-cols" value="6" min="2" max="14">
     <span class="ctrl-label">rows</span><input type="number" id="ctrl-rows" value="4" min="1" max="10">
     <span class="ctrl-label">color</span>
     <select id="ctrl-color">
-      <option value="type">by type</option>
-      <option value="stress">by stress</option>
-      <option value="mono">monochrome</option>
+      <option value="subtype" selected>subtype</option>
+      <option value="stress">stress</option>
+      <option value="feature">feature</option>
+      <option value="mono">mono</option>
     </select>
-    <span class="ctrl-label">filter</span>
-    <select id="ctrl-filter">
-      <option value="all">all</option>
-      <option value="linear">linear</option>
-      <option value="increasing">increasing</option>
-      <option value="decreasing">decreasing</option>
-      <option value="s-type">s-type</option>
-      <option value="flagged">flagged</option>
+    <span class="ctrl-label">feature</span><select id="ctrl-feature"><option value="final_stress">final_stress</option></select>
+    <span class="ctrl-label">filter</span><select id="ctrl-filter"><option value="all">all</option><option value="flagged">flagged</option></select>
+    <span class="ctrl-label">sort</span>
+    <select id="ctrl-sort">
+      <option value="index">index</option>
+      <option value="feature_desc">feature ↓</option>
+      <option value="feature_asc">feature ↑</option>
+      <option value="final_stress_desc">final_stress ↓</option>
+      <option value="energy_desc">energy ↓</option>
+      <option value="E_init_desc">E_init ↓</option>
+      <option value="stiffness_ratio_desc">stiffness_ratio ↓</option>
     </select>
     <button class="btn btn-outline" id="btn-export" disabled>Export flagged</button>
   </div>
@@ -162,33 +211,49 @@
 
 <div id="stats-bar">
   <div class="stat-item"><span class="stat-label">total</span><span class="stat-val" id="st-total">—</span></div>
-  <div class="stat-item"><span class="stat-label">linear</span><span class="stat-val" id="st-lin">—</span></div>
-  <div class="stat-item"><span class="stat-label">increasing</span><span class="stat-val" id="st-inc">—</span></div>
-  <div class="stat-item"><span class="stat-label">decreasing</span><span class="stat-val" id="st-dec">—</span></div>
-  <div class="stat-item"><span class="stat-label">s-type</span><span class="stat-val" id="st-s">—</span></div>
+  <div class="stat-item"><span class="stat-label">Linear</span><span class="stat-val" id="st-linear">—</span></div>
+  <div class="stat-item"><span class="stat-label">Increasing</span><span class="stat-val" id="st-increasing">—</span></div>
+  <div class="stat-item"><span class="stat-label">S-Smooth</span><span class="stat-val" id="st-s-smooth">—</span></div>
+  <div class="stat-item"><span class="stat-label">S-NegK</span><span class="stat-val" id="st-s-negk">—</span></div>
+  <div class="stat-item"><span class="stat-label">D-Positive</span><span class="stat-val" id="st-d-pos">—</span></div>
+  <div class="stat-item"><span class="stat-label">D-Negative</span><span class="stat-val" id="st-d-neg">—</span></div>
+  <div class="stat-item"><span class="stat-label">D-Plateau</span><span class="stat-val" id="st-d-plat">—</span></div>
   <div class="stat-item"><span class="stat-label">flagged</span><span class="stat-val" id="st-flag">0</span></div>
   <div class="stat-item"><span class="stat-label">σ max</span><span class="stat-val" id="st-range">—</span></div>
-  <div class="stat-item" style="margin-left:auto;color:var(--muted);font-size:9px">↑↓ scroll · ←→ arrow · click = detail · [c/g/d] switch view/tab</div>
+  <div class="stat-item"><span class="stat-label">feature</span><span class="stat-val" id="st-feature-range">—</span></div>
+  <div class="subtle-tip">↑↓ wheel page · ←→ navigate · click detail · c/s/g/f/m switch view</div>
 </div>
 
 <div id="welcome">
-  <h2>METAMATERIAL CURVE INSPECTOR</h2>
-  <p>Load X/Y CSV files and the Python-generated feature JSON to inspect stress–strain curves, Raw finite-difference stiffness, and elliptical hole geometry. Scroll the mouse wheel to flip pages instantly.</p>
+  <h2>METAMATERIAL CURVE + FEATURE INSPECTOR</h2>
+  <p>
+    这个版本直接读取三个 CSV：几何参数 CSV、Abaqus 位移/力结果 CSV、以及 <code>features_summary_v4.csv</code>。
+    曲线、刚度、几何、特征指纹和二维特征散点图可以用同一个 case index 联动查看。
+  </p>
   <div class="step-list">
-    <div class="step"><span>01</span>Upload x_data CSV<br><span style="font-size:9px;color:#334155">12-col geometry</span></div>
-    <div class="step"><span>02</span>Upload y_data CSV<br><span style="font-size:9px;color:#334155">100-col stress–strain</span></div>
-    <div class="step"><span>03</span>Upload features JSON<br><span style="font-size:9px;color:#334155">from curve_inspector_core.py</span></div>
-    <div class="step"><span>04</span>Scroll to browse<br><span style="font-size:9px;color:#334155">wheel flips pages</span></div>
+    <div class="step"><span>01</span>Geometry CSV<br><span class="tiny">success_geo_params.csv</span></div>
+    <div class="step"><span>02</span>Stress / strain CSV<br><span class="tiny">success_case_results_merged.csv</span></div>
+    <div class="step"><span>03</span>Features CSV<br><span class="tiny">features_summary_v4.csv</span></div>
+    <div class="step"><span>04</span>Feature Map<br><span class="tiny">click point = detail</span></div>
   </div>
 </div>
 
 <div id="main">
-  <div class="page-nav">
+  <div class="page-nav" id="page-nav">
     <button class="btn" id="btn-prev" disabled>← prev</button>
     <button class="btn" id="btn-next" disabled>next →</button>
-    <input type="number" id="goto-input" placeholder="go to #" style="width:75px">
+    <input type="number" id="goto-input" placeholder="case #" style="width:85px">
     <button class="btn btn-outline" id="btn-goto">go</button>
     <span class="page-info" id="page-info"></span>
+  </div>
+  <div id="map-panel">
+    <div class="map-controls">
+      <span class="ctrl-label">x</span><select id="ctrl-map-x"><option value="stiffness_ratio">stiffness_ratio</option></select>
+      <span class="ctrl-label">y</span><select id="ctrl-map-y"><option value="energy">energy</option></select>
+      <span class="ctrl-label">点颜色由 header 的 color 控制；filter 会同步作用到散点图</span>
+    </div>
+    <canvas id="feature-map-canvas"></canvas>
+    <div class="legend-row" id="map-legend"></div>
   </div>
   <div id="grid"></div>
 </div>
@@ -196,636 +261,848 @@
 <div id="modal-overlay">
   <div id="modal">
     <div class="modal-header">
-      <span class="modal-title-txt" id="modal-title-text">Sample #0</span>
-      <div style="display:flex;gap:10px;align-items:center">
+      <span class="modal-title-txt" id="modal-title-text">Case #0</span>
+      <div style="display:flex;gap:10px;align-items:center;min-width:max-content">
         <div class="modal-tabs">
           <button class="mtab active" id="mtab-curve">Curve</button>
+          <button class="mtab" id="mtab-deriv">Stiffness</button>
           <button class="mtab" id="mtab-geo">Geometry</button>
-          <button class="mtab" id="mtab-deriv">Derivative</button>
+          <button class="mtab" id="mtab-feature">Features</button>
         </div>
         <button class="close-btn" id="modal-close">✕</button>
       </div>
     </div>
-    <div id="modal-curve-pane" class="active"><canvas id="detail-canvas" height="240"></canvas></div>
-    <div id="modal-geo-pane"><canvas id="geo-detail-canvas" height="240"></canvas></div>
-    <div id="modal-deriv-pane"><canvas id="deriv-detail-canvas" height="240"></canvas></div>
+    <div id="modal-curve-pane" class="modal-pane active"><canvas id="detail-canvas"></canvas></div>
+    <div id="modal-deriv-pane" class="modal-pane"><canvas id="deriv-detail-canvas"></canvas></div>
+    <div id="modal-geo-pane" class="modal-pane"><canvas id="geo-detail-canvas"></canvas></div>
+    <div id="modal-feature-pane" class="modal-pane"><canvas id="feature-detail-canvas"></canvas></div>
+    <div class="section-title">CASE SUMMARY</div>
     <div class="param-grid" id="param-grid"></div>
   </div>
 </div>
 
 <script>
-const PARAM_NAMES=['a₁ top/bottom','b₁ top/bottom','θ₁ top/bottom','a₂ center','b₂ center','θ₂ center','a₃ corner','b₃ corner','θ₃ corner','a₄ left/right','b₄ left/right','θ₄ left/right'];
-const PARAM_UNITS=['mm','mm','°','mm','mm','°','mm','mm','°','mm','mm','°'];
-const L=20;
+const L = 20;
+const STRAIN_GRID = Array.from({length:100}, (_,i)=>0.1*i/99);
+const TYPE_COLORS = {
+  'linear':'#7cc4ff', 'increasing':'#4ade80', 'decreasing':'#fb7185', 's-type':'#fbbf24', 'unknown':'#94a3b8'
+};
+const SUBTYPE_COLORS = {
+  'Linear':'#7cc4ff', 'Increasing':'#4ade80', 'S-type-Smooth':'#fbbf24', 'S-type-NegK':'#f97316',
+  'Decreasing-Positive':'#fb7185', 'Decreasing-Negative':'#ef4444', 'Decreasing-Plateau':'#f59e0b', 'Unknown':'#94a3b8'
+};
+const SUBTYPE_ORDER = [
+  'Linear','Increasing','S-type-Smooth','S-type-NegK',
+  'Decreasing-Positive','Decreasing-Negative','Decreasing-Plateau'
+];
+const FEATURE_DISPLAY = [
+  'E_init','E_secant','r2_linear','k_cv','peak_stress','final_stress','drop_ratio','energy','crush_efficiency',
+  'slope_cv','stiffness_ratio','valley_depth','recovery_gain','late_early_ratio',
+  'local_drop_ratio','local_recovery_ratio','recovery_fraction'
+];
+const FEATURE_FINGERPRINT = ['E_init','final_stress','energy','stiffness_ratio','slope_cv','valley_depth','recovery_gain','local_drop_ratio'];
+const $ = id => document.getElementById(id);
 
-let xData=null,yData=null,allIndices=[],filteredIndices=[],flaggedSet=new Set(),curveTypes=[],curveFeatures=[],featureSource='',page=0,detailIdx=-1,viewMode='curve',globalStressMax=1,modalTab='curve',detailRaf=0;
-const $=id=>document.getElementById(id);
-function finiteOnly(arr){return (arr||[]).filter(v=>Number.isFinite(v));}
-function canvasCssSize(canvas, fallbackW=720, fallbackH=240){
-  const rect=canvas.getBoundingClientRect();
-  const w=Math.max(1, Math.round(rect.width || canvas.offsetWidth || fallbackW));
-  const h=Math.max(1, Math.round(rect.height || canvas.offsetHeight || fallbackH));
-  return {w,h};
+let geoRows = [];
+let stressRows = [];
+let features = [];
+let allIndices = [];
+let filteredIndices = [];
+let flaggedSet = new Set();
+let viewMode = 'curve';
+let page = 0;
+let detailIdx = -1;
+let modalTab = 'curve';
+let globalStressMax = 1;
+let numericFeatureCols = [];
+let featureStats = {};
+let featureMapPoints = [];
+let lastMapRect = null;
+let detailRaf = 0;
+let wheelAccum = 0;
+let wheelTimer = null;
+
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function finite(v){ return Number.isFinite(v); }
+function fmt(v, digits=4){
+  const n = Number(v);
+  if(!Number.isFinite(n)) return '—';
+  const av = Math.abs(n);
+  if(av > 0 && (av < 1e-3 || av >= 1e4)) return n.toExponential(2);
+  return n.toFixed(digits).replace(/\.0+$/,'').replace(/(\.\d*?)0+$/,'$1');
 }
-
-function parseCSV(t){return t.trim().split('\n').map(l=>{const r=l.trim();return r?r.split(',').map(v=>parseFloat(v.trim())):null;}).filter(Boolean);}
-
-function getCurveFeatures(idx){
-  if(curveFeatures && curveFeatures[idx])return curveFeatures[idx];
-  return null;
+function normType(t){
+  const s = String(t || '').trim().toLowerCase();
+  if(s.includes('s-type') || s === 's') return 's-type';
+  if(s.includes('increase')) return 'increasing';
+  if(s.includes('decrease')) return 'decreasing';
+  if(s.includes('linear')) return 'linear';
+  return 'unknown';
 }
-
-function parseFeatureJSON(text){
-  const payload=JSON.parse(text);
-  const rows=Array.isArray(payload)?payload:payload.rows;
-  if(!Array.isArray(rows))throw new Error('Feature JSON must be an array or contain a rows array.');
-  const features=[];
-  const types=[];
-  rows.forEach((row,i)=>{
-    const idx=Number.isInteger(row.index)?row.index:i;
-    features[idx]=row;
-    types[idx]=row.type||'linear';
+function canonicalSubtype(raw, legacyType='') {
+  const s = String(raw || '').trim();
+  if(SUBTYPE_ORDER.includes(s)) return s;
+  const compact = s.toLowerCase().replace(/[\s_]+/g,'-');
+  const aliases = {
+    'linear':'Linear',
+    'increasing':'Increasing',
+    's-type-smooth':'S-type-Smooth',
+    'stype-smooth':'S-type-Smooth',
+    's-smooth':'S-type-Smooth',
+    's-type-negk':'S-type-NegK',
+    'stype-negk':'S-type-NegK',
+    's-negk':'S-type-NegK',
+    'decreasing-positive':'Decreasing-Positive',
+    'd-positive':'Decreasing-Positive',
+    'decreasing-negative':'Decreasing-Negative',
+    'd-negative':'Decreasing-Negative',
+    'decreasing-plateau':'Decreasing-Plateau',
+    'd-plateau':'Decreasing-Plateau'
+  };
+  if(aliases[compact]) return aliases[compact];
+  const lt = normType(legacyType || s);
+  if(lt === 'linear') return 'Linear';
+  if(lt === 'increasing') return 'Increasing';
+  return 'Unknown';
+}
+function subtypeShort(s){
+  return {
+    'Linear':'Linear', 'Increasing':'Increasing',
+    'S-type-Smooth':'S-Smooth', 'S-type-NegK':'S-NegK',
+    'Decreasing-Positive':'D-Positive', 'Decreasing-Negative':'D-Negative', 'Decreasing-Plateau':'D-Plateau',
+    'Unknown':'Unknown'
+  }[canonicalSubtype(s)] || 'Unknown';
+}
+function getFeature(idx){ return features[idx] || null; }
+function getType(idx){ return normType(getFeature(idx)?.curve_type); }
+function getSubtype(idx){ const f=getFeature(idx); return f ? canonicalSubtype(f.curve_subtype, f.curve_type) : 'Unknown'; }
+function featureValue(idx, col){
+  const f = getFeature(idx);
+  const v = f ? Number(f[col]) : NaN;
+  if(Number.isFinite(v)) return v;
+  if(col === 'final_stress' && stressRows[idx]) return stressRows[idx][stressRows[idx].length-1];
+  return NaN;
+}
+function colorForIndex(idx){
+  const mode = $('ctrl-color').value;
+  if(mode === 'mono') return '#00d4aa';
+  if(mode === 'subtype') return SUBTYPE_COLORS[getSubtype(idx)] || '#94a3b8';
+  if(mode === 'stress') {
+    const v = stressRows[idx] ? stressRows[idx][stressRows[idx].length-1] : featureValue(idx,'final_stress');
+    return gradientColor(v, 0, globalStressMax || 1);
+  }
+  if(mode === 'feature') {
+    const col = $('ctrl-feature').value;
+    const st = featureStats[col];
+    return gradientColor(featureValue(idx,col), st?.p02 ?? st?.min ?? 0, st?.p98 ?? st?.max ?? 1);
+  }
+  return SUBTYPE_COLORS[getSubtype(idx)] || '#94a3b8';
+}
+function gradientColor(v, lo, hi){
+  if(!Number.isFinite(v)) return '#64748b';
+  const t = clamp((v-lo)/((hi-lo)||1),0,1);
+  const r = Math.round(56 + 191*t);
+  const g = Math.round(189 - 76*t);
+  const b = Math.round(248 - 115*t);
+  return `rgb(${r},${g},${b})`;
+}
+function cssSize(canvas, fallbackW=720, fallbackH=300){
+  const rect = canvas.getBoundingClientRect();
+  return {w: Math.max(1, Math.round(rect.width || fallbackW)), h: Math.max(1, Math.round(rect.height || fallbackH))};
+}
+function setupCanvas(canvas, fallbackW=720, fallbackH=300){
+  const {w,h} = cssSize(canvas, fallbackW, fallbackH);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(w*dpr);
+  canvas.height = Math.round(h*dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx,w,h};
+}
+function splitCSVLine(line){
+  const out=[]; let cur=''; let q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'){
+      if(q && line[i+1]==='"'){cur+='"'; i++;}
+      else q=!q;
+    } else if(ch===',' && !q){ out.push(cur); cur=''; }
+    else cur+=ch;
+  }
+  out.push(cur);
+  return out;
+}
+function parseNumericMatrix(text){
+  return text.split(/\r?\n/).map(line=>line.trim()).filter(Boolean).map(line=>{
+    const vals = splitCSVLine(line).map(v=>Number(v.trim())).filter(v=>Number.isFinite(v));
+    return vals.length ? vals : null;
+  }).filter(Boolean);
+}
+function parseTableCSV(text){
+  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  if(!lines.length) return {headers:[], rows:[]};
+  const headers = splitCSVLine(lines[0].replace(/^\uFEFF/, '')).map(s=>s.trim().replace(/^\uFEFF/, ''));
+  const rows = [];
+  for(let i=1;i<lines.length;i++){
+    const cells = splitCSVLine(lines[i]);
+    const obj = {};
+    headers.forEach((h,j)=>{
+      const raw = (cells[j] ?? '').trim();
+      const num = Number(raw);
+      obj[h] = raw === '' ? NaN : (Number.isFinite(num) ? num : raw);
+    });
+    rows.push(obj);
+  }
+  return {headers, rows};
+}
+function interpolate(xs, ys, xgrid){
+  const pairs = xs.map((x,i)=>[Number(x), Number(ys[i])]).filter(p=>Number.isFinite(p[0]) && Number.isFinite(p[1])).sort((a,b)=>a[0]-b[0]);
+  if(!pairs.length) return xgrid.map(()=>0);
+  const ux=[], uy=[];
+  for(const [x,y] of pairs){
+    if(!ux.length || Math.abs(x-ux[ux.length-1]) > 1e-12){ ux.push(x); uy.push(y); }
+  }
+  if(ux.length === 1) return xgrid.map(()=>uy[0]);
+  let j=0;
+  return xgrid.map(x=>{
+    if(x <= ux[0]) return uy[0];
+    if(x >= ux[ux.length-1]) return uy[uy.length-1];
+    while(j < ux.length-2 && ux[j+1] < x) j++;
+    const t = (x-ux[j]) / (ux[j+1]-ux[j] || 1);
+    return uy[j]*(1-t) + uy[j+1]*t;
   });
-  return {features,types,source:payload.source||'',rowCount:rows.length};
 }
-
-function applyFeatureRows(parsed){
-  curveFeatures=parsed.features;
-  curveTypes=parsed.types;
-  featureSource=parsed.source||'';
+function parseStressCSV(text){
+  const rows = parseNumericMatrix(text);
+  if(!rows.length) return [];
+  const first = rows[0];
+  const looksLikeDispForce = rows.length >= 2 && rows.length % 2 === 0 && first.some(v=>v<0) && Math.abs(first[0]) < 1e-9;
+  if(looksLikeDispForce){
+    const out=[];
+    for(let i=0;i<rows.length;i+=2){
+      const disp = rows[i], force = rows[i+1] || [];
+      const m = Math.min(disp.length, force.length);
+      const strain = disp.slice(0,m).map(v=>-v/80.0);
+      const stress = force.slice(0,m).map(v=>-v/80.0);
+      out.push(interpolate(strain, stress, STRAIN_GRID));
+    }
+    return out;
+  }
+  return rows.map(r=>{
+    if(r.length === 100) return r.slice();
+    const xs = r.map((_,i)=>i/(r.length-1 || 1)*0.1);
+    return interpolate(xs, r, STRAIN_GRID);
+  });
 }
+function parseFeaturesCSV(text){
+  const {headers, rows} = parseTableCSV(text);
+  if(!headers.includes('case_id')) throw new Error('features CSV 需要包含 case_id 列。');
+  const arr=[];
+  for(const row of rows){
+    const id = Number(row.case_id);
+    if(Number.isInteger(id) && id >= 0){
+      // Normalize the two label fields so later filtering and badges do not fail
+      // when a CSV writer changes capitalization or adds stray spaces.
+      if(row.curve_type !== undefined) row.curve_type = String(row.curve_type).trim();
+      if(row.curve_subtype !== undefined) row.curve_subtype = canonicalSubtype(row.curve_subtype, row.curve_type);
+      else row.curve_subtype = canonicalSubtype('', row.curve_type);
+      arr[id] = row;
+    }
+  }
+  numericFeatureCols = headers.filter(h => h !== 'case_id' && h !== 'curve_type' && h !== 'curve_subtype' && rows.some(r=>Number.isFinite(Number(r[h]))));
+  // IMPORTANT: compute stats/options from the freshly parsed array, not from the
+  // previous global features array. Otherwise feature bars, filters and labels can
+  // appear empty until a second refresh.
+  features = arr;
+  computeFeatureStats();
+  updateFeatureSelectors();
+  updateFilterOptions();
+  return arr;
+}
+function geometryPrefixes(headers){
+  const prefixes=[];
+  for(const h of headers){
+    const m = h.match(/^(.+)_ox$/);
+    if(!m) continue;
+    const p=m[1];
+    const hasAbaqus = [`${p}_oy`,`${p}_ax`,`${p}_ay`,`${p}_bx`,`${p}_by`].every(c=>headers.includes(c));
+    const hasNetwork = [`${p}_oy`,`${p}_major`,`${p}_minor`,`${p}_theta`].every(c=>headers.includes(c));
+    if(hasAbaqus || hasNetwork) prefixes.push({prefix:p, mode:hasAbaqus?'abaqus':'network'});
+  }
+  return prefixes;
+}
+function convertAbaqusEllipse(row, p){
+  const ox=Number(row[`${p}_ox`]), oy=Number(row[`${p}_oy`]);
+  const ax=Number(row[`${p}_ax`]), ay=Number(row[`${p}_ay`]);
+  const bx=Number(row[`${p}_bx`]), by=Number(row[`${p}_by`]);
+  const aDx=ax-ox, aDy=ay-oy, bDx=bx-ox, bDy=by-oy;
+  const aLen=Math.hypot(aDx,aDy), bLen=Math.hypot(bDx,bDy);
+  let major, minor, theta;
+  // Same conversion as convert_abaqus_to_network_geom.py:
+  // the longer endpoint vector defines major/theta; theta is axis-equivalent modulo 180°.
+  if(aLen >= bLen){ major=aLen; minor=bLen; theta=Math.atan2(aDy,aDx); }
+  else { major=bLen; minor=aLen; theta=Math.atan2(bDy,bDx); }
+  const scale=Number(row[`${p}_scale`]);
+  return {id:p, ox, oy, major, minor, theta, scale:Number.isFinite(scale)?scale:1, raw:{ax,ay,bx,by}};
+}
+function convertNetworkEllipse(row, p){
+  const ox=Number(row[`${p}_ox`]), oy=Number(row[`${p}_oy`]);
+  const major=Number(row[`${p}_major`]), minor=Number(row[`${p}_minor`]);
+  const theta=Number(row[`${p}_theta`]) * Math.PI / 180;
+  return {id:p, ox, oy, major, minor, theta, scale:1, raw:null};
+}
+function geometryBoundsFromCenters(ellipses){
+  const xs=ellipses.map(e=>e.ox).filter(Number.isFinite);
+  const ys=ellipses.map(e=>e.oy).filter(Number.isFinite);
+  if(!xs.length || !ys.length) return {minX:0,maxX:L,minY:0,maxY:L};
+  let minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
+  if(Math.abs(maxX-minX) < 1e-9){ minX-=L/2; maxX+=L/2; }
+  if(Math.abs(maxY-minY) < 1e-9){ minY-=L/2; maxY+=L/2; }
+  // Keep the displayed unit cell square. The uploaded Abaqus geometry typically
+  // uses centers from x=-10..10 and y=0..20, i.e. a 20×20 cell shifted in x.
+  const width=maxX-minX, height=maxY-minY;
+  if(Math.abs(width-height) > 1e-9){
+    if(width > height){ const c=(minY+maxY)/2; minY=c-width/2; maxY=c+width/2; }
+    else { const c=(minX+maxX)/2; minX=c-height/2; maxX=c+height/2; }
+  }
+  return {minX,maxX,minY,maxY};
+}
+function parseGeometryCSV(text){
+  const {headers, rows} = parseTableCSV(text);
+  const prefixes = geometryPrefixes(headers);
+  if(prefixes.length){
+    return rows.map(row => {
+      const ellipses = prefixes.map(({prefix,mode}) => mode==='abaqus' ? convertAbaqusEllipse(row,prefix) : convertNetworkEllipse(row,prefix))
+        .filter(e=>[e.ox,e.oy,e.major,e.minor,e.theta].every(Number.isFinite) && e.major>0 && e.minor>0);
+      return {kind:'ellipse_axes', ellipses, bounds: geometryBoundsFromCenters(ellipses)};
+    });
+  }
+  const mat = parseNumericMatrix(text);
+  return mat.map(row => ({kind:'legacy12', params: row.slice(0,12), bounds:{minX:0,maxX:L,minY:0,maxY:L}}));
+}
+function computeFeatureStats(){
+  featureStats = {};
+  for(const col of numericFeatureCols){
+    const vals = features.map(f=>Number(f?.[col])).filter(Number.isFinite).sort((a,b)=>a-b);
+    if(!vals.length) continue;
+    const q = p => vals[Math.max(0, Math.min(vals.length-1, Math.floor(p*(vals.length-1))))];
+    featureStats[col] = {min:vals[0], max:vals[vals.length-1], p02:q(.02), p98:q(.98), median:q(.5)};
+  }
+}
+function updateFeatureSelectors(){
+  const keep = $('ctrl-feature').value;
+  const mapX = $('ctrl-map-x').value;
+  const mapY = $('ctrl-map-y').value;
+  const opts = numericFeatureCols.map(c=>`<option value="${c}">${c}</option>`).join('');
+  $('ctrl-feature').innerHTML = opts || '<option value="final_stress">final_stress</option>';
+  $('ctrl-map-x').innerHTML = opts || '<option value="stiffness_ratio">stiffness_ratio</option>';
+  $('ctrl-map-y').innerHTML = opts || '<option value="energy">energy</option>';
+  $('ctrl-feature').value = numericFeatureCols.includes(keep) ? keep : (numericFeatureCols.includes('final_stress') ? 'final_stress' : numericFeatureCols[0] || 'final_stress');
+  $('ctrl-map-x').value = numericFeatureCols.includes(mapX) ? mapX : (numericFeatureCols.includes('stiffness_ratio') ? 'stiffness_ratio' : numericFeatureCols[0] || 'final_stress');
+  $('ctrl-map-y').value = numericFeatureCols.includes(mapY) ? mapY : (numericFeatureCols.includes('energy') ? 'energy' : numericFeatureCols[1] || numericFeatureCols[0] || 'final_stress');
+}
+function updateFilterOptions(){
+  const old = $('ctrl-filter').value;
+  const subs = new Set();
+  features.forEach(f=>{ if(f) subs.add(canonicalSubtype(f.curve_subtype, f.curve_type)); });
+  let html = '<option value="all">all subtypes</option><option value="flagged">flagged</option>';
+  SUBTYPE_ORDER.forEach(s=>{ if(subs.has(s)) html += `<option value="subtype:${s}">${s}</option>`; });
+  [...subs].filter(s=>!SUBTYPE_ORDER.includes(s)).sort().forEach(s=>{ html += `<option value="subtype:${s}">${s}</option>`; });
+  $('ctrl-filter').innerHTML = html;
+  $('ctrl-filter').value = [...$('ctrl-filter').options].some(o=>o.value===old) ? old : 'all';
+}
+function recomputeIndices(){
+  const maxLen = Math.max(geoRows.length, stressRows.length, features.length);
+  allIndices = [];
+  for(let i=0;i<maxLen;i++){
+    if(geoRows[i] || stressRows[i] || features[i]) allIndices.push(i);
+  }
+}
+function getFiltered(){
+  const f = $('ctrl-filter').value;
+  let arr = allIndices.slice();
+  if(f === 'flagged') arr = arr.filter(i=>flaggedSet.has(i));
+  else if(f.startsWith('subtype:')) arr = arr.filter(i=>getSubtype(i) === f.slice(8));
+  const sort = $('ctrl-sort').value;
+  const col = $('ctrl-feature').value;
+  const val = (i,c)=>featureValue(i,c);
+  if(sort === 'feature_desc') arr.sort((a,b)=>(val(b,col) || -Infinity)-(val(a,col) || -Infinity));
+  else if(sort === 'feature_asc') arr.sort((a,b)=>(Number.isFinite(val(a,col))?val(a,col):Infinity)-(Number.isFinite(val(b,col))?val(b,col):Infinity));
+  else if(sort.endsWith('_desc')){
+    const c = sort.replace('_desc','');
+    arr.sort((a,b)=>(val(b,c) || -Infinity)-(val(a,c) || -Infinity));
+  }
+  return arr;
+}
+function perPage(){ return (parseInt($('ctrl-cols').value)||6) * (parseInt($('ctrl-rows').value)||4); }
 
-function drawEllipse(ctx,cx,cy,a,b,deg,fill,stroke,lineWidth=1){
-  ctx.save();ctx.translate(cx,cy);ctx.rotate(deg*Math.PI/180);
-  ctx.beginPath();ctx.ellipse(0,0,a,b,0,0,2*Math.PI);
-  ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=lineWidth;ctx.stroke();
+function drawMiniCurve(canvas, yRow, idx){
+  const {ctx,w,h} = setupCanvas(canvas,200,90);
+  ctx.clearRect(0,0,w,h); ctx.fillStyle = '#11151b'; ctx.fillRect(0,0,w,h);
+  if(!yRow){ return drawEmpty(ctx,w,h,'stress missing'); }
+  const pad=7, n=yRow.length, maxY=Math.max(globalStressMax, ...yRow, 1e-9), color=colorForIndex(idx);
+  ctx.strokeStyle='#253041'; ctx.lineWidth=.6;
+  for(let g=1; g<=3; g++){ const gy=pad+(h-2*pad)*(1-g/4); ctx.beginPath(); ctx.moveTo(pad,gy); ctx.lineTo(w-pad,gy); ctx.stroke(); }
+  ctx.strokeStyle=color; ctx.lineWidth=1.8; ctx.lineJoin='round'; ctx.beginPath();
+  for(let i=0;i<n;i++){ const x=pad+i/(n-1)*(w-2*pad), y=pad+(h-2*pad)*(1-yRow[i]/maxY); i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+  ctx.stroke(); ctx.fillStyle=color+'18'; ctx.lineTo(w-pad,h-pad); ctx.lineTo(pad,h-pad); ctx.closePath(); ctx.fill();
+  drawFeatureMarkersOnCurve(ctx,w,h,yRow,idx,pad,maxY);
+}
+function drawFeatureMarkersOnCurve(ctx,w,h,yRow,idx,pad,maxY){
+  const f=getFeature(idx); if(!f) return;
+  const marks=[['peak_strain','#fbbf24'],['local_peak_strain','#fb7185'],['local_valley_strain','#38bdf8'],['local_recovery_strain','#22c55e']];
+  for(const [col,c] of marks){
+    const e=Number(f[col]); if(!Number.isFinite(e)) continue;
+    const k=clamp(Math.round(e/0.1*(yRow.length-1)),0,yRow.length-1);
+    const x=pad+(e/0.1)*(w-2*pad), y=pad+(h-2*pad)*(1-yRow[k]/maxY);
+    ctx.fillStyle=c; ctx.beginPath(); ctx.arc(x,y,2.4,0,2*Math.PI); ctx.fill();
+  }
+}
+function derivativeFromStress(yRow){
+  if(!yRow || yRow.length<2) return {x:[], k:[]};
+  const x=[], k=[];
+  for(let i=0;i<yRow.length-1;i++){
+    const dx = STRAIN_GRID[i+1]-STRAIN_GRID[i];
+    x.push((STRAIN_GRID[i]+STRAIN_GRID[i+1])/2);
+    k.push((yRow[i+1]-yRow[i])/(dx || 1));
+  }
+  return {x,k};
+}
+function drawMiniDerivative(canvas, yRow, idx){
+  const {ctx,w,h} = setupCanvas(canvas,200,90);
+  ctx.clearRect(0,0,w,h); ctx.fillStyle = '#11151b'; ctx.fillRect(0,0,w,h);
+  if(!yRow){ return drawEmpty(ctx,w,h,'stress missing'); }
+  const {x,k}=derivativeFromStress(yRow); const vals=k.filter(Number.isFinite); if(!vals.length) return;
+  const lo=Math.min(...vals), hi=Math.max(...vals), padY=Math.max((hi-lo)*.1,.05), y0=lo-padY, y1=hi+padY, pad=7, color=colorForIndex(idx);
+  const mx=e=>pad+(e/0.1)*(w-2*pad), my=v=>pad+(h-2*pad)*(1-(v-y0)/((y1-y0)||1));
+  ctx.strokeStyle='#253041'; ctx.lineWidth=.6;
+  for(let g=1;g<=3;g++){ const gy=pad+(h-2*pad)*(1-g/4); ctx.beginPath();ctx.moveTo(pad,gy);ctx.lineTo(w-pad,gy);ctx.stroke(); }
+  if(y0<0 && y1>0){ const zy=my(0); ctx.strokeStyle='#ffffff35'; ctx.setLineDash([4,3]); ctx.beginPath();ctx.moveTo(pad,zy);ctx.lineTo(w-pad,zy);ctx.stroke(); ctx.setLineDash([]); }
+  ctx.strokeStyle=color; ctx.lineWidth=1.7; ctx.beginPath();
+  k.forEach((v,i)=>{ const px=mx(x[i]), py=my(v); i?ctx.lineTo(px,py):ctx.moveTo(px,py); }); ctx.stroke();
+  const f=getFeature(idx); if(f){ ctx.fillStyle='#7b8aa1'; ctx.font='8px JetBrains Mono,monospace'; ctx.textAlign='left'; ctx.fillText(`kcv ${fmt(f.k_cv,2)}`,pad,h-pad-9); ctx.fillText(`ratio ${fmt(f.stiffness_ratio,2)}`,pad,h-pad); }
+}
+function drawLegacyGeometry(ctx, ox, oy, cellSize, params, opts={}){
+  const sc=cellSize/L;
+  ctx.fillStyle=opts.material || '#8a9bb0'; ctx.fillRect(ox,oy,cellSize,cellSize);
+  ctx.save(); ctx.beginPath(); ctx.rect(ox,oy,cellSize,cellSize); ctx.clip();
+  const groups = [
+    {a:params[0],b:params[1],theta:params[2],centers:[[L/2,0],[L/2,L]],color:'#fb7185'},
+    {a:params[3],b:params[4],theta:params[5],centers:[[L/2,L/2]],color:'#38bdf8'},
+    {a:params[6],b:params[7],theta:params[8],centers:[[0,0],[L,0],[0,L],[L,L]],color:'#00d4aa'},
+    {a:params[9],b:params[10],theta:params[11],centers:[[0,L/2],[L,L/2]],color:'#c084fc'},
+  ];
+  for(const g of groups){
+    for(const [mx,my] of g.centers){
+      const cx=ox+mx*sc, cy=oy+(L-my)*sc;
+      drawEllipseByAxes(ctx,cx,cy,g.a*sc,g.b*sc,-g.theta*Math.PI/180,'#0d1118',g.color,opts.lineWidth||1);
+    }
+  }
   ctx.restore();
 }
-
-// Expand the 4 independent parameter groups into the complete 3×3 hole layout
-// of one periodic unit cell.
-// IMPORTANT: the real CSV order is:
-//   group 1: top/bottom boundary holes
-//   group 2: central hole
-//   group 3: four corner quarter-holes
-//   group 4: left/right boundary holes
-function getUnitCellHoleGroups(params){
-  return [
-    {key:'vertical', label:'top/bottom', short:'TB', color:'#ff6b35', dash:[5,3],
-      a:params[0], b:params[1], theta:params[2], centers:[[L/2,0],[L/2,L]]},
-    {key:'center', label:'center', short:'C', color:'#0088ff', dash:[],
-      a:params[3], b:params[4], theta:params[5], centers:[[L/2,L/2]]},
-    {key:'corner', label:'corners', short:'K', color:'#00d4aa', dash:[],
-      a:params[6], b:params[7], theta:params[8], centers:[[0,0],[L,0],[0,L],[L,L]]},
-    {key:'horizontal', label:'left/right', short:'LR', color:'#c084fc', dash:[2,3],
-      a:params[9], b:params[10], theta:params[11], centers:[[0,L/2],[L,L/2]]},
-  ];
+function drawEllipseByAxes(ctx,cx,cy,a,b,theta,fill,stroke,lineWidth=1){
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(theta); ctx.beginPath(); ctx.ellipse(0,0,Math.max(.1,a),Math.max(.1,b),0,0,2*Math.PI); ctx.fillStyle=fill; ctx.fill(); ctx.strokeStyle=stroke; ctx.lineWidth=lineWidth; ctx.stroke(); ctx.restore();
 }
-
-function drawUnitCellGeometry(ctx, ox, oy, cellSize, params, opts={}){
-  const sc=cellSize/L;
-  const holeFill=opts.holeFill||'#1a2535';
-  const drawGuides=opts.drawGuides??false;
-  const drawCenters=opts.drawCenters??false;
-  const lineWidth=opts.lineWidth||1;
-
-  // material block
-  ctx.fillStyle=opts.materialFill||'#8a9bb0';
+function drawGeometryObject(ctx, ox, oy, cellSize, geo, opts={}){
+  ctx.fillStyle=opts.material || '#8a9bb0';
   ctx.fillRect(ox,oy,cellSize,cellSize);
-
-  if(drawGuides){
-    ctx.save();
-    ctx.strokeStyle='#ffffff18';ctx.lineWidth=0.5;ctx.setLineDash([3,3]);
-    for(let i=1;i<=2;i++){
-      const g=ox+i*cellSize/3;
-      ctx.beginPath();ctx.moveTo(g,oy);ctx.lineTo(g,oy+cellSize);ctx.stroke();
-      const h=oy+i*cellSize/3;
-      ctx.beginPath();ctx.moveTo(ox,h);ctx.lineTo(ox+cellSize,h);ctx.stroke();
+  if(opts.guides){
+    ctx.save(); ctx.strokeStyle='#ffffff16'; ctx.lineWidth=.6; ctx.setLineDash([4,4]);
+    for(let i=1;i<=3;i++){
+      const x=ox+i*cellSize/4; ctx.beginPath();ctx.moveTo(x,oy);ctx.lineTo(x,oy+cellSize);ctx.stroke();
+      const y=oy+i*cellSize/4; ctx.beginPath();ctx.moveTo(ox,y);ctx.lineTo(ox+cellSize,y);ctx.stroke();
     }
-    ctx.setLineDash([]);
     ctx.restore();
   }
+  if(!geo){ return; }
+  if(geo.kind === 'legacy12') return drawLegacyGeometry(ctx,ox,oy,cellSize,geo.params,opts);
+
+  const b = geo.bounds || {minX:0,maxX:L,minY:0,maxY:L};
+  const sx = cellSize / ((b.maxX-b.minX)||L);
+  const sy = cellSize / ((b.maxY-b.minY)||L);
+  const scale = Math.min(sx,sy);
+  const toCanvas=(x,y)=>[ox+(x-b.minX)*sx, oy+(b.maxY-y)*sy];
 
   ctx.save();
-  ctx.beginPath();ctx.rect(ox,oy,cellSize,cellSize);ctx.clip();
-
-  const toCanvas=(mx,my)=>[ox+mx*sc, oy+(L-my)*sc];
-
-  getUnitCellHoleGroups(params).forEach(g=>{
-    ctx.save();
-    ctx.setLineDash(g.dash);
-    g.centers.forEach(([mx,my])=>{
-      const [cx,cy]=toCanvas(mx,my);
-      // Canvas y-axis points downward, hence -theta preserves the mathematical CCW angle.
-      drawEllipse(ctx,cx,cy,g.a*sc,g.b*sc,-g.theta,holeFill,g.color+'cc',lineWidth);
-      if(drawCenters){
-        ctx.fillStyle=g.color;
-        ctx.beginPath();ctx.arc(cx,cy,2.3,0,2*Math.PI);ctx.fill();
-      }
-    });
-    ctx.restore();
+  ctx.beginPath(); ctx.rect(ox,oy,cellSize,cellSize); ctx.clip();
+  const paletteById={a:'#fb7185',b:'#38bdf8',c:'#00d4aa',d:'#c084fc',a1:'#fb7185',d1:'#c084fc',c1:'#00d4aa',c2:'#00d4aa',c3:'#00d4aa'};
+  const palette=['#00d4aa','#38bdf8','#c084fc','#fbbf24','#fb7185','#22c55e','#f97316','#a78bfa','#60a5fa'];
+  geo.ellipses.forEach((e,j)=>{
+    const [cx,cy]=toCanvas(e.ox,e.oy);
+    const color=paletteById[e.id] || palette[j%palette.length];
+    // Canvas has a downward y-axis, so a mathematical +theta becomes -theta.
+    drawEllipseByAxes(ctx,cx,cy,e.major*scale,e.minor*scale,-e.theta,'#0d1118',color,opts.lineWidth||1);
+    if(opts.axes && e.raw){
+      const [ax,ay]=toCanvas(e.raw.ax,e.raw.ay), [bx,by]=toCanvas(e.raw.bx,e.raw.by);
+      ctx.strokeStyle=color+'88'; ctx.lineWidth=.8; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(ax,ay); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(bx,by); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if(opts.centers){ ctx.fillStyle=color; ctx.beginPath(); ctx.arc(cx,cy,2.6,0,2*Math.PI); ctx.fill(); }
   });
-
   ctx.restore();
 }
-
-function drawGeoMini(canvas,params,flagged){
-  const W=canvas.width,H=canvas.height,ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='#0e1117';ctx.fillRect(0,0,W,H);
-
-  const pad=W*0.08;
-  const cellSize=Math.min(W-2*pad,H-2*pad);
-  const ox=(W-cellSize)/2;
-  const oy=(H-cellSize)/2;
-
-  drawUnitCellGeometry(ctx,ox,oy,cellSize,params,{lineWidth:Math.max(1,W*0.006)});
-
-  // cell boundary
-  ctx.strokeStyle=flagged?'#ff6b35':'#00d4aa66';
-  ctx.lineWidth=Math.max(1,W*0.008);
-  ctx.strokeRect(ox,oy,cellSize,cellSize);
-
-  // subtle 3×3 hole-center hint
-  ctx.fillStyle='#e2e8f055';
-  const sc=cellSize/L;
-  [[L/2,L/2],[0,0],[L,0],[0,L],[L,L],[L/2,0],[L/2,L],[0,L/2],[L,L/2]].forEach(([mx,my])=>{
-    const cx=ox+mx*sc, cy=oy+(L-my)*sc;
-    ctx.beginPath();ctx.arc(cx,cy,Math.max(1,W*0.006),0,2*Math.PI);ctx.fill();
+function drawGeoMini(canvas, geo, idx){
+  const {ctx,w,h}=setupCanvas(canvas,200,126);
+  ctx.clearRect(0,0,w,h); ctx.fillStyle='#0d1118'; ctx.fillRect(0,0,w,h);
+  if(!geo) return drawEmpty(ctx,w,h,'geometry missing');
+  const pad=Math.max(8,w*.08); const cell=Math.min(w-2*pad,h-2*pad); const ox=(w-cell)/2, oy=(h-cell)/2;
+  drawGeometryObject(ctx,ox,oy,cell,geo,{lineWidth:Math.max(1,w*.006)});
+  ctx.strokeStyle=flaggedSet.has(idx)?'#fb7185':'#00d4aa88'; ctx.lineWidth=Math.max(1,w*.008); ctx.strokeRect(ox,oy,cell,cell);
+}
+function drawFeatureMini(canvas, idx){
+  const {ctx,w,h}=setupCanvas(canvas,200,126);
+  ctx.clearRect(0,0,w,h); ctx.fillStyle='#11151b'; ctx.fillRect(0,0,w,h);
+  const f=getFeature(idx); if(!f) return drawEmpty(ctx,w,h,'features missing');
+  const color=colorForIndex(idx); const pad=10; const top=18; const rowH=(h-top-22)/FEATURE_FINGERPRINT.length;
+  ctx.font='8px JetBrains Mono,monospace'; ctx.textAlign='left';
+  FEATURE_FINGERPRINT.forEach((col,i)=>{
+    const st=featureStats[col]; const v=Number(f[col]);
+    const y=top+i*rowH; const label=col.replace('stiffness_','stiff_').replace('local_','loc_');
+    const t=st?clamp((v-st.p02)/((st.p98-st.p02)||1),0,1):0;
+    ctx.fillStyle='#7b8aa1'; ctx.fillText(label,pad,y+7);
+    ctx.fillStyle='#253041'; ctx.fillRect(w*0.47,y,w*0.43,Math.max(3,rowH*.42));
+    ctx.fillStyle=(col===$('ctrl-feature').value)?color:'#00d4aa'; ctx.fillRect(w*0.47,y,w*0.43*t,Math.max(3,rowH*.42));
+    ctx.fillStyle='#7b8aa1'; ctx.textAlign='right'; ctx.fillText(fmt(v,2),w-pad,y+7); ctx.textAlign='left';
   });
+  ctx.fillStyle=color+'22'; ctx.strokeStyle=color; ctx.lineWidth=1; roundRect(ctx,pad,4,Math.min(w-2*pad,150),12,5); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=color; ctx.font='8px JetBrains Mono,monospace'; ctx.textAlign='center'; ctx.fillText(getSubtype(idx),pad+Math.min(w-2*pad,150)/2,13);
 }
+function roundRect(ctx,x,y,w,h,r){
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,r); return; }
+  ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+}
+function drawEmpty(ctx,w,h,msg){ ctx.fillStyle='#11151b'; ctx.fillRect(0,0,w,h); ctx.fillStyle='#64748b'; ctx.font='10px JetBrains Mono,monospace'; ctx.textAlign='center'; ctx.fillText(msg,w/2,h/2); }
 
-function drawGeoDetail(canvas,params,idx){
-  const cW=canvas.offsetWidth,cH=240,dpr=window.devicePixelRatio||1;
-  canvas.width=cW*dpr;canvas.height=cH*dpr;
-  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);
-  ctx.fillStyle='#0e1117';ctx.fillRect(0,0,cW,cH);
-
-  const pad=28;
-  const cellSize=Math.min(cW-2*pad, cH-2*pad-34);
-  const ox=(cW-cellSize)/2;
-  const oy=(cH-cellSize)/2 - 16;
-
-  drawUnitCellGeometry(ctx,ox,oy,cellSize,params,{drawGuides:true,drawCenters:true,lineWidth:1.25});
-
-  // outer boundary
-  ctx.strokeStyle='#00d4aa99';ctx.lineWidth=1.5;ctx.setLineDash([]);
-  ctx.strokeRect(ox,oy,cellSize,cellSize);
-
-  // Emphasize the central hole axes as an orientation reference.
-  // CSV group 2 is the central hole: params[3], params[4], params[5].
-  const sc=cellSize/L;
-  const cx=ox+(L/2)*sc, cy=oy+(L-L/2)*sc;
-  const a=params[3]*sc, b=params[4]*sc, theta=-params[5]*Math.PI/180;
-  const ax=Math.cos(theta)*a, ay=Math.sin(theta)*a;
-  const bx=-Math.sin(theta)*b, by=Math.cos(theta)*b;
-  ctx.strokeStyle='#e2e8f0aa';ctx.lineWidth=0.8;
-  ctx.beginPath();ctx.moveTo(cx-ax,cy-ay);ctx.lineTo(cx+ax,cy+ay);ctx.stroke();
-  ctx.strokeStyle='#94a3b8aa';
-  ctx.beginPath();ctx.moveTo(cx-bx,cy-by);ctx.lineTo(cx+bx,cy+by);ctx.stroke();
-
-  // legend strip at bottom
-  const lx=ox, ly=oy+cellSize+8;
-  const groups=getUnitCellHoleGroups(params).map((g,gi)=>({
-    label:[`1 ${g.label}`,`2 ${g.label}`,`3 ${g.label}`,`4 ${g.label}`][gi],
-    color:g.color,
-    p:`a=${g.a.toFixed(1)} b=${g.b.toFixed(1)} θ=${g.theta.toFixed(0)}°`
-  }));
-  const gw=cellSize/groups.length;
-  ctx.font='8px JetBrains Mono,monospace';
-  groups.forEach(({label,color,p},i)=>{
-    const gx=lx+i*gw;
-    ctx.fillStyle=color;ctx.beginPath();ctx.arc(gx+5,ly+8,3,0,2*Math.PI);ctx.fill();
-    ctx.fillStyle='#94a3b8';ctx.textAlign='left';
-    ctx.fillText(label,gx+11,ly+8);
-    ctx.fillStyle='#64748b';
-    ctx.fillText(p,gx+11,ly+16);
+function drawDetailCurve(canvas, yRow, idx){
+  const {ctx,w,h}=setupCanvas(canvas,850,300);
+  ctx.clearRect(0,0,w,h); ctx.fillStyle='#0d1118'; ctx.fillRect(0,0,w,h);
+  if(!yRow) return drawEmpty(ctx,w,h,'stress missing');
+  const pL=54,pR=20,pT=18,pB=42,n=yRow.length,maxY=Math.max(...yRow,1e-9)*1.12,color=colorForIndex(idx);
+  drawAxes(ctx,w,h,pL,pR,pT,pB,0,maxY,'Nominal strain','Nominal stress (MPa)');
+  ctx.strokeStyle=color; ctx.lineWidth=2.4; ctx.lineJoin='round'; ctx.shadowColor=color+'44'; ctx.shadowBlur=8; ctx.beginPath();
+  for(let i=0;i<n;i++){ const x=pL+i/(n-1)*(w-pL-pR), y=pT+(h-pT-pB)*(1-yRow[i]/maxY); i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+  ctx.stroke(); ctx.shadowBlur=0;
+  ctx.fillStyle=color+'14'; ctx.lineTo(w-pR,h-pB); ctx.lineTo(pL,h-pB); ctx.closePath(); ctx.fill();
+  drawFeatureMarkersOnCurve(ctx,w,h,yRow,idx,pL,maxY);
+  drawCurveBadge(ctx,pL,pT,idx);
+  ctx.fillStyle='#7b8aa1'; ctx.font='10px JetBrains Mono,monospace'; ctx.textAlign='right';
+  ctx.fillText(`σ_final=${fmt(yRow[n-1],4)} MPa`,w-pR,pT+12); ctx.fillText(`σ_max=${fmt(Math.max(...yRow),4)} MPa`,w-pR,pT+25);
+}
+function drawDerivativeDetail(canvas, yRow, idx){
+  const {ctx,w,h}=setupCanvas(canvas,850,300);
+  ctx.clearRect(0,0,w,h); ctx.fillStyle='#0d1118'; ctx.fillRect(0,0,w,h);
+  if(!yRow) return drawEmpty(ctx,w,h,'stress missing');
+  const {x,k}=derivativeFromStress(yRow); const vals=k.filter(Number.isFinite); if(!vals.length) return;
+  const lo=Math.min(...vals), hi=Math.max(...vals), padY=Math.max((hi-lo)*.12,.05), y0=lo-padY, y1=hi+padY;
+  const pL=60,pR=20,pT=18,pB=42, color=colorForIndex(idx);
+  drawAxes(ctx,w,h,pL,pR,pT,pB,y0,y1,'Nominal strain','Finite-difference stiffness dσ/dε',true);
+  const mx=e=>pL+(e/0.1)*(w-pL-pR), my=v=>pT+(h-pT-pB)*(1-(v-y0)/((y1-y0)||1));
+  if(y0<0&&y1>0){ const zy=my(0); ctx.strokeStyle='#ffffff44'; ctx.setLineDash([5,4]); ctx.beginPath();ctx.moveTo(pL,zy);ctx.lineTo(w-pR,zy);ctx.stroke(); ctx.setLineDash([]); }
+  ctx.strokeStyle=color; ctx.lineWidth=2.2; ctx.lineJoin='round'; ctx.shadowColor=color+'44'; ctx.shadowBlur=8; ctx.beginPath();
+  k.forEach((v,i)=>{ const px=mx(x[i]), py=my(v); i?ctx.lineTo(px,py):ctx.moveTo(px,py); }); ctx.stroke(); ctx.shadowBlur=0;
+  const f=getFeature(idx);
+  if(f){
+    const marks=[['local_peak_strain','#fb7185'],['local_valley_strain','#38bdf8'],['local_recovery_strain','#22c55e']];
+    for(const [col,c] of marks){ const e=Number(f[col]); if(!Number.isFinite(e)) continue; ctx.strokeStyle=c; ctx.setLineDash([4,4]); const xx=mx(e); ctx.beginPath();ctx.moveTo(xx,pT);ctx.lineTo(xx,h-pB);ctx.stroke(); ctx.setLineDash([]); }
+  }
+  drawCurveBadge(ctx,pL,pT,idx);
+}
+function drawGeoDetail(canvas, geo, idx){
+  const {ctx,w,h}=setupCanvas(canvas,850,300);
+  ctx.clearRect(0,0,w,h); ctx.fillStyle='#0d1118'; ctx.fillRect(0,0,w,h);
+  if(!geo) return drawEmpty(ctx,w,h,'geometry missing');
+  const pad=26, cell=Math.min(w-2*pad,h-54); const ox=(w-cell)/2, oy=(h-cell)/2-14;
+  drawGeometryObject(ctx,ox,oy,cell,geo,{lineWidth:1.35,guides:true,centers:true,axes:true});
+  ctx.strokeStyle='#00d4aa99'; ctx.lineWidth=1.5; ctx.strokeRect(ox,oy,cell,cell);
+  ctx.fillStyle='#7b8aa1'; ctx.font='9px JetBrains Mono,monospace'; ctx.textAlign='right'; ctx.fillText(`case #${idx}`,w-12,h-18);
+  const n = geo.kind === 'ellipse_axes' ? geo.ellipses.length : 4;
+  const b = geo.bounds || {minX:0,maxX:L,minY:0,maxY:L};
+  ctx.textAlign='left'; ctx.fillText(`ellipses: ${n} · cell x=[${fmt(b.minX,1)},${fmt(b.maxX,1)}], y=[${fmt(b.minY,1)},${fmt(b.maxY,1)}]`,12,h-18);
+}
+function drawFeatureDetail(canvas, idx){
+  const {ctx,w,h}=setupCanvas(canvas,850,300);
+  ctx.clearRect(0,0,w,h); ctx.fillStyle='#0d1118'; ctx.fillRect(0,0,w,h);
+  const f=getFeature(idx); if(!f) return drawEmpty(ctx,w,h,'features missing');
+  const cols=FEATURE_DISPLAY.filter(c=>Number.isFinite(Number(f[c])));
+  const left=54,right=20,top=28,bottom=52, plotW=w-left-right, plotH=h-top-bottom, barGap=3;
+  const barW=Math.max(4, plotW/cols.length - barGap);
+  ctx.strokeStyle='#253041'; ctx.lineWidth=.8;
+  for(let g=0;g<=4;g++){ const y=top+plotH*(1-g/4); ctx.beginPath(); ctx.moveTo(left,y); ctx.lineTo(w-right,y); ctx.stroke(); }
+  cols.forEach((col,i)=>{
+    const st=featureStats[col]; const v=Number(f[col]); const t=st?clamp((v-st.p02)/((st.p98-st.p02)||1),0,1):0;
+    const x=left+i*(plotW/cols.length)+barGap/2; const bh=plotH*t; const color=col===$('ctrl-feature').value?colorForIndex(idx):'#00d4aa';
+    ctx.fillStyle=color+'33'; ctx.fillRect(x,top+plotH-bh,barW,bh);
+    ctx.fillStyle=color; ctx.fillRect(x,top+plotH-bh,barW,Math.min(4,bh));
+    ctx.save(); ctx.translate(x+barW/2,h-bottom+12); ctx.rotate(-Math.PI/4); ctx.fillStyle='#7b8aa1'; ctx.font='8px JetBrains Mono,monospace'; ctx.textAlign='right'; ctx.fillText(col,0,0); ctx.restore();
   });
-
-  ctx.fillStyle='#334155';ctx.font='9px JetBrains Mono,monospace';ctx.textAlign='right';
-  ctx.fillText(`#${idx}`,cW-8,ly+8);
+  ctx.fillStyle='#e5edf7'; ctx.font='11px JetBrains Mono,monospace'; ctx.textAlign='left'; ctx.fillText('Feature fingerprint: robust percentile-normalized bars (2–98%)',left,17);
+  ctx.fillStyle='#7b8aa1'; ctx.font='10px JetBrains Mono,monospace'; ctx.fillText(`subtype=${getSubtype(idx)}`,left,h-12);
+  // small local drop-recovery plane inset
+  const ix=w-245, iy=28, iw=220, ih=120;
+  drawLocalDropInset(ctx,ix,iy,iw,ih,idx);
 }
-
-function drawMiniCurve(canvas,yRow,type,colorMode,globalMax){
-  const W=canvas.width,H=canvas.height,ctx=canvas.getContext('2d'),n=yRow.length;
-  ctx.clearRect(0,0,W,H);ctx.fillStyle='#111418';ctx.fillRect(0,0,W,H);
-  const pad=5,rangeY=globalMax||1;
-  ctx.strokeStyle='#1e242e';ctx.lineWidth=0.5;
-  for(let g=1;g<=3;g++){const gy=pad+(H-2*pad)*(1-g/4);ctx.beginPath();ctx.moveTo(pad,gy);ctx.lineTo(W-pad,gy);ctx.stroke();}
-  let color;
-  if(colorMode==='mono')color='#00d4aa';
-  else if(colorMode==='stress'){const r=Math.round(yRow[n-1]/rangeY*255);color=`rgb(${r},${Math.round((1-r/255)*212)},170)`;}
-  else color={linear:'#00d4aa',increasing:'#0088ff',decreasing:'#ff6b35','s-type':'#c084fc'}[type]||'#00d4aa';
-  ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.lineJoin='round';
-  ctx.beginPath();
-  for(let i=0;i<n;i++){const px=pad+(i/(n-1))*(W-2*pad),py=pad+(H-2*pad)*(1-yRow[i]/rangeY);i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}
-  ctx.stroke();ctx.fillStyle=color+'18';ctx.lineTo(W-pad,H-pad);ctx.lineTo(pad,H-pad);ctx.closePath();ctx.fill();
+function drawLocalDropInset(ctx,x,y,w,h,idx){
+  const xs='local_drop_ratio', ys='local_recovery_ratio';
+  const sx=featureStats[xs] || {p02:0,p98:.15}, sy=featureStats[ys] || {p02:0,p98:.1};
+  const x0=0, x1=Math.max(sx.p98,.03), y0=0, y1=Math.max(sy.p98,.02);
+  ctx.fillStyle='#11151b'; ctx.strokeStyle='#253041'; ctx.lineWidth=1; ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h);
+  ctx.fillStyle='#7b8aa1'; ctx.font='8px JetBrains Mono,monospace'; ctx.textAlign='left'; ctx.fillText('local drop/recovery',x+6,y+11);
+  const px=v=>x+28+(v-x0)/(x1-x0)*(w-38); const py=v=>y+h-22-(v-y0)/(y1-y0)*(h-42);
+  ctx.strokeStyle='#ffffff30'; ctx.setLineDash([4,3]); ctx.beginPath(); ctx.moveTo(px(.02),y+16); ctx.lineTo(px(.02),y+h-20); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x+26,py(.015)); ctx.lineTo(x+w-8,py(.015)); ctx.stroke(); ctx.setLineDash([]);
+  const f=getFeature(idx); const vx=Number(f?.[xs]), vy=Number(f?.[ys]);
+  if(Number.isFinite(vx)&&Number.isFinite(vy)){ ctx.fillStyle=colorForIndex(idx); ctx.beginPath(); ctx.arc(px(vx),py(vy),4,0,2*Math.PI); ctx.fill(); }
+  ctx.fillStyle='#64748b'; ctx.textAlign='right'; ctx.fillText(xs,x+w-8,y+h-6); ctx.save(); ctx.translate(x+10,y+h/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillText(ys,0,0); ctx.restore();
 }
-
-function drawMiniDerivative(canvas,yRow,type,colorMode,idx=-1){
-  const W=canvas.width,H=canvas.height,ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,W,H);ctx.fillStyle='#111418';ctx.fillRect(0,0,W,H);
-  const f=idx>=0?getCurveFeatures(idx):null;
-  if(!f)return drawMissingFeatures(ctx,W,H);
-  const k=f.k||[], eps=f.eps||[];
-  const pad=6;
-  if(!k.length)return;
-  let color;
-  if(colorMode==='mono')color='#00d4aa';
-  else color={linear:'#00d4aa',increasing:'#0088ff',decreasing:'#ff6b35','s-type':'#c084fc'}[type]||'#00d4aa';
-
-  const fk=finiteOnly(k);
-  if(!fk.length)return;
-  const kMin=Math.min(...fk), kMax=Math.max(...fk);
-  const yPad=Math.max((kMax-kMin)*0.12,0.05);
-  const y0=kMin-yPad, y1=kMax+yPad;
-  const mapX=e=>pad+(e/0.1)*(W-2*pad);
-  const mapY=v=>pad+(H-2*pad)*(1-(v-y0)/(y1-y0||1));
-
-  ctx.strokeStyle='#1e242e';ctx.lineWidth=0.5;
-  for(let g=1;g<=3;g++){
-    const gy=pad+(H-2*pad)*(1-g/4);
-    ctx.beginPath();ctx.moveTo(pad,gy);ctx.lineTo(W-pad,gy);ctx.stroke();
-  }
-  if(y0<0&&y1>0){
-    const zy=mapY(0);
-    ctx.strokeStyle='#ffffff33';ctx.setLineDash([4,3]);
-    ctx.beginPath();ctx.moveTo(pad,zy);ctx.lineTo(W-pad,zy);ctx.stroke();
-    ctx.setLineDash([]);
-  }
-
-  ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.lineJoin='round';
-  ctx.beginPath();
-  k.forEach((v,i)=>{const px=mapX(eps[i]), py=mapY(v); i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);});
-  ctx.stroke();
-
-  if(f.minIdx>=0&&f.minIdx<k.length){
-    ctx.fillStyle='#ffdf6b';ctx.strokeStyle='#0a0c0f';ctx.lineWidth=0.8;
-    ctx.beginPath();ctx.arc(mapX(eps[f.minIdx]),mapY(k[f.minIdx]),3,0,2*Math.PI);ctx.fill();ctx.stroke();
-  }
-
-  ctx.fillStyle='#64748b';ctx.font='8px JetBrains Mono,monospace';ctx.textAlign='left';
-  ctx.fillText(`CV ${f.cv.toFixed(2)}`,pad+1,H-pad-10);
-  ctx.fillText(`V ${f.valleyProminence.toFixed(2)}`,pad+1,H-pad-2);
-}
-
-function drawDerivativeCurve(canvas,yRow,idx){
-  const {w:cW,h:cH}=canvasCssSize(canvas,720,240);
-  const dpr=Math.min(window.devicePixelRatio||1,2); // cap DPR to avoid large canvas allocations
-  canvas.width=Math.round(cW*dpr);canvas.height=Math.round(cH*dpr);
-  const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.fillStyle='#111418';ctx.fillRect(0,0,cW,cH);
-
-  const f=getCurveFeatures(idx);
-  if(!f){return drawMissingFeatures(ctx,cW,cH);}
-  const k=(f.k||[]).map(v=>Number.isFinite(v)?v:0), eps=f.eps||[];
-  const pL=50,pR=18,pT=14,pB=38;
-  if(!k.length || !finiteOnly(k).length){return;}
-  const fk=finiteOnly(k);
-  const kMin=Math.min(...fk), kMax=Math.max(...fk);
-  const padY=Math.max((kMax-kMin)*0.12,0.05);
-  const yMin=kMin-padY, yMax=kMax+padY;
-  const mapX=e=>pL+(e/0.1)*(cW-pL-pR);
-  const mapY=v=>pT+(cH-pT-pB)*(1-(v-yMin)/(yMax-yMin||1));
-
-  ctx.font='9px JetBrains Mono,monospace';ctx.strokeStyle='#1e242e';ctx.lineWidth=0.8;ctx.fillStyle='#64748b';ctx.textAlign='right';
-  for(let i=0;i<=5;i++){
-    const v=yMin+(yMax-yMin)*i/5, gy=mapY(v);
-    ctx.beginPath();ctx.moveTo(pL,gy);ctx.lineTo(cW-pR,gy);ctx.stroke();
-    ctx.fillText(v.toFixed(2),pL-4,gy+3);
-  }
+function drawAxes(ctx,w,h,pL,pR,pT,pB,yMin,yMax,xLabel,yLabel,signed=false){
+  ctx.font='9px JetBrains Mono,monospace'; ctx.strokeStyle='#253041'; ctx.lineWidth=.8; ctx.fillStyle='#7b8aa1'; ctx.textAlign='right';
+  for(let i=0;i<=5;i++){ const v=yMin+(yMax-yMin)*i/5, gy=pT+(h-pT-pB)*(1-i/5); ctx.beginPath();ctx.moveTo(pL,gy);ctx.lineTo(w-pR,gy);ctx.stroke(); ctx.fillText(fmt(v,2),pL-4,gy+3); }
   ctx.textAlign='center';
-  for(let i=0;i<=5;i++){
-    const e=0.1*i/5, gx=mapX(e);
-    ctx.beginPath();ctx.moveTo(gx,pT);ctx.lineTo(gx,cH-pB);ctx.stroke();
-    ctx.fillText(e.toFixed(2),gx,cH-pB+12);
-  }
-
-  // zero stiffness line
-  if(yMin<0 && yMax>0){
-    const zy=mapY(0);
-    ctx.strokeStyle='#ffffff35';ctx.setLineDash([4,3]);ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(pL,zy);ctx.lineTo(cW-pR,zy);ctx.stroke();
-    ctx.setLineDash([]);
-  }
-
-  // Tangent stiffness curve
-  const type=f.type,tc={linear:'#00d4aa',increasing:'#0088ff',decreasing:'#ff6b35','s-type':'#c084fc'}[type]||'#00d4aa';
-  ctx.strokeStyle=tc;ctx.lineWidth=2.1;ctx.lineJoin='round';ctx.shadowColor=tc+'33';ctx.shadowBlur=6;
-  ctx.beginPath();
-  k.forEach((v,i)=>{const x=mapX(eps[i]), y=mapY(v); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
-  ctx.stroke();ctx.shadowBlur=0;
-
-  // Valley marker
-  if(f.minIdx>=0 && f.minIdx<k.length){
-    const vx=mapX(eps[f.minIdx]), vy=mapY(k[f.minIdx]);
-    ctx.fillStyle='#ffdf6b';ctx.strokeStyle='#0a0c0f';ctx.lineWidth=1;
-    ctx.beginPath();ctx.arc(vx,vy,4,0,2*Math.PI);ctx.fill();ctx.stroke();
-  }
-
-  ctx.fillStyle='#94a3b8';ctx.font='10px DM Sans,sans-serif';ctx.textAlign='center';
-  ctx.fillText('Nominal strain',pL+(cW-pL-pR)/2,cH-3);
-  ctx.save();ctx.translate(11,pT+(cH-pT-pB)/2);ctx.rotate(-Math.PI/2);ctx.fillText('Raw finite-difference dσ/dε',0,0);ctx.restore();
-
-  // Feature summary badge
-  ctx.fillStyle=tc+'28';ctx.strokeStyle=tc;ctx.lineWidth=1;
-  ctx.beginPath();ctx.roundRect(pL+8,pT+7,80,16,4);ctx.fill();ctx.stroke();
-  ctx.fillStyle=tc;ctx.font='9px JetBrains Mono,monospace';ctx.textAlign='center';ctx.fillText(type.toUpperCase(),pL+48,pT+18);
-  ctx.fillStyle='#64748b';ctx.font='9px JetBrains Mono,monospace';ctx.textAlign='right';
-  ctx.fillText(`CV=${f.cv.toFixed(2)}  trend=${f.trendDelta.toFixed(2)}`,cW-pR,pT+14);
-  ctx.fillText(`valley=${f.valleyProminence.toFixed(2)}  turns=${f.signChanges}`,cW-pR,pT+27);
+  for(let i=0;i<=5;i++){ const e=0.1*i/5, gx=pL+(w-pL-pR)*i/5; ctx.beginPath();ctx.moveTo(gx,pT);ctx.lineTo(gx,h-pB);ctx.stroke(); ctx.fillText(e.toFixed(2),gx,h-pB+13); }
+  ctx.fillStyle='#94a3b8'; ctx.font='10px DM Sans,sans-serif'; ctx.fillText(xLabel,pL+(w-pL-pR)/2,h-5);
+  ctx.save(); ctx.translate(12,pT+(h-pT-pB)/2); ctx.rotate(-Math.PI/2); ctx.fillText(yLabel,0,0); ctx.restore();
 }
-
-function drawMissingFeatures(ctx,w,h){
-  ctx.fillStyle='#111418';ctx.fillRect(0,0,w,h);
-  ctx.fillStyle='#64748b';ctx.font='10px JetBrains Mono,monospace';ctx.textAlign='center';
-  ctx.fillText('load feature JSON',w/2,h/2);
+function drawCurveBadge(ctx,x,y,idx){
+  const color=colorForIndex(idx); const txt=subtypeShort(getSubtype(idx));
+  ctx.fillStyle=color+'22'; ctx.strokeStyle=color; ctx.lineWidth=1; roundRect(ctx,x+8,y+6,Math.min(180,txt.length*7+20),18,6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=color; ctx.font='9px JetBrains Mono,monospace'; ctx.textAlign='left'; ctx.fillText(txt,x+17,y+19);
 }
-
-function drawDetailCurve(canvas,yRow,idx){
-  const cW=canvas.offsetWidth,cH=240,dpr=window.devicePixelRatio||1;
-  canvas.width=cW*dpr;canvas.height=cH*dpr;
-  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);
-  ctx.fillStyle='#111418';ctx.fillRect(0,0,cW,cH);
-  const pL=50,pR=18,pT=14,pB=34,n=yRow.length,maxY=Math.max(...yRow)*1.1;
-  ctx.font='9px JetBrains Mono,monospace';ctx.strokeStyle='#1e242e';ctx.lineWidth=0.8;ctx.fillStyle='#64748b';ctx.textAlign='right';
-  for(let i=0;i<=5;i++){const v=maxY*i/5,gy=pT+(cH-pT-pB)*(1-i/5);ctx.beginPath();ctx.moveTo(pL,gy);ctx.lineTo(cW-pR,gy);ctx.stroke();ctx.fillText(v.toFixed(3),pL-3,gy+3);}
+function drawFeatureMap(){
+  const panel=$('map-panel');
+  if(viewMode !== 'map') return;
+  const canvas=$('feature-map-canvas');
+  const {ctx,w,h}=setupCanvas(canvas,900,620);
+  ctx.clearRect(0,0,w,h); ctx.fillStyle='#0d1118'; ctx.fillRect(0,0,w,h);
+  const xCol=$('ctrl-map-x').value, yCol=$('ctrl-map-y').value;
+  const rows=filteredIndices.filter(i=>Number.isFinite(featureValue(i,xCol)) && Number.isFinite(featureValue(i,yCol)));
+  if(!rows.length){ drawEmpty(ctx,w,h,'features missing / no valid points'); return; }
+  const xs=rows.map(i=>featureValue(i,xCol)).sort((a,b)=>a-b), ys=rows.map(i=>featureValue(i,yCol)).sort((a,b)=>a-b);
+  const q=(arr,p)=>arr[Math.max(0,Math.min(arr.length-1,Math.floor(p*(arr.length-1))))];
+  let x0=q(xs,.01), x1=q(xs,.99), y0=q(ys,.01), y1=q(ys,.99);
+  if(x0===x1){x0-=1;x1+=1;} if(y0===y1){y0-=1;y1+=1;}
+  const dx=(x1-x0)*.08, dy=(y1-y0)*.08; x0-=dx; x1+=dx; y0-=dy; y1+=dy;
+  const pL=58,pR=24,pT=22,pB=56;
+  const mx=v=>pL+(v-x0)/(x1-x0)*(w-pL-pR), my=v=>pT+(h-pT-pB)*(1-(v-y0)/(y1-y0));
+  ctx.strokeStyle='#253041'; ctx.lineWidth=.8; ctx.fillStyle='#7b8aa1'; ctx.font='9px JetBrains Mono,monospace'; ctx.textAlign='right';
+  for(let g=0;g<=5;g++){ const yy=pT+(h-pT-pB)*g/5; const val=y1-(y1-y0)*g/5; ctx.beginPath();ctx.moveTo(pL,yy);ctx.lineTo(w-pR,yy);ctx.stroke(); ctx.fillText(fmt(val,2),pL-5,yy+3); }
   ctx.textAlign='center';
-  for(let i=0;i<=5;i++){const v=0.1*i/5,gx=pL+(cW-pL-pR)*i/5;ctx.beginPath();ctx.moveTo(gx,pT);ctx.lineTo(gx,cH-pB);ctx.stroke();ctx.fillText(v.toFixed(2),gx,cH-pB+12);}
-  ctx.fillStyle='#94a3b8';ctx.font='10px DM Sans,sans-serif';ctx.textAlign='center';
-  ctx.fillText('Nominal strain',pL+(cW-pL-pR)/2,cH-2);
-  ctx.save();ctx.translate(10,pT+(cH-pT-pB)/2);ctx.rotate(-Math.PI/2);ctx.fillText('Nominal stress (MPa)',0,0);ctx.restore();
-  ctx.strokeStyle='#00d4aa';ctx.lineWidth=2.2;ctx.lineJoin='round';ctx.shadowColor='#00d4aa33';ctx.shadowBlur=6;
-  ctx.beginPath();
-  for(let i=0;i<n;i++){const px=pL+(i/(n-1))*(cW-pL-pR),py=pT+(cH-pT-pB)*(1-yRow[i]/maxY);i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}
-  ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle='#00d4aa10';ctx.lineTo(cW-pR,cH-pB);ctx.lineTo(pL,cH-pB);ctx.closePath();ctx.fill();
-  const type=curveTypes[idx]||'linear',tc={linear:'#00d4aa',increasing:'#0088ff',decreasing:'#ff6b35','s-type':'#c084fc'}[type]||'#00d4aa';
-  ctx.fillStyle=tc+'28';ctx.strokeStyle=tc;ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(pL+8,pT+7,68,16,4);ctx.fill();ctx.stroke();
-  ctx.fillStyle=tc;ctx.font='9px JetBrains Mono,monospace';ctx.textAlign='center';ctx.fillText(type.toUpperCase(),pL+42,pT+18);
-  ctx.fillStyle='#64748b';ctx.font='9px JetBrains Mono,monospace';ctx.textAlign='right';
-  ctx.fillText(`σ_final=${yRow[n-1].toFixed(4)} MPa`,cW-pR,pT+14);
-  ctx.fillText(`σ_max=${Math.max(...yRow).toFixed(4)} MPa`,cW-pR,pT+26);
+  for(let g=0;g<=5;g++){ const xx=pL+(w-pL-pR)*g/5; const val=x0+(x1-x0)*g/5; ctx.beginPath();ctx.moveTo(xx,pT);ctx.lineTo(xx,h-pB);ctx.stroke(); ctx.fillText(fmt(val,2),xx,h-pB+15); }
+  featureMapPoints=[];
+  rows.forEach(i=>{
+    const x=mx(featureValue(i,xCol)), y=my(featureValue(i,yCol));
+    featureMapPoints.push({idx:i,x,y});
+    ctx.fillStyle=colorForIndex(i); ctx.globalAlpha=flaggedSet.has(i)?1:.62; ctx.beginPath(); ctx.arc(x,y,flaggedSet.has(i)?4.5:2.7,0,2*Math.PI); ctx.fill();
+  });
+  ctx.globalAlpha=1;
+  ctx.fillStyle='#e5edf7'; ctx.font='12px JetBrains Mono,monospace'; ctx.textAlign='left'; ctx.fillText(`${xCol}  vs  ${yCol}   ·   n=${rows.length}`,pL,pT-7);
+  ctx.fillStyle='#94a3b8'; ctx.font='11px DM Sans,sans-serif'; ctx.textAlign='center'; ctx.fillText(xCol,pL+(w-pL-pR)/2,h-10);
+  ctx.save(); ctx.translate(14,pT+(h-pT-pB)/2); ctx.rotate(-Math.PI/2); ctx.fillText(yCol,0,0); ctx.restore();
+  lastMapRect={w,h,pL,pR,pT,pB};
+  updateMapLegend();
 }
-
-function perPage(){return(parseInt($('ctrl-cols').value)||6)*(parseInt($('ctrl-rows').value)||4);}
-function getFiltered(){const f=$('ctrl-filter').value;if(f==='all')return allIndices.slice();if(f==='flagged')return allIndices.filter(i=>flaggedSet.has(i));return allIndices.filter(i=>curveTypes[i]===f);}
+function updateMapLegend(){
+  const mode=$('ctrl-color').value;
+  let items=[];
+  if(mode==='subtype') {
+    const present = new Set(filteredIndices.map(getSubtype));
+    items = SUBTYPE_ORDER.filter(s=>present.has(s)).map(s=>[s,SUBTYPE_COLORS[s]||'#94a3b8']);
+  } else items=[['low','#38bdf8'],['high','#fb7185']];
+  $('map-legend').innerHTML=items.slice(0,12).map(([t,c])=>`<span><span class="legend-dot" style="background:${c}"></span>${t}</span>`).join('');
+}
 
 function renderPage(){
-  filteredIndices=getFiltered();
-  const pp=perPage(),total=Math.ceil(filteredIndices.length/pp);
-  if(page>=total)page=Math.max(0,total-1);
-  const cols=parseInt($('ctrl-cols').value)||6;
-  $('grid').style.setProperty('--cols',cols);
-  const start=page*pp,slice=filteredIndices.slice(start,start+pp);
-  const colorMode=$('ctrl-color').value,globalMax=globalStressMax||1;
-  const dpr=window.devicePixelRatio||1,grid=$('grid');
-  grid.innerHTML='';
-
+  filteredIndices = getFiltered();
+  $('grid').style.display = viewMode === 'map' ? 'none' : 'grid';
+  $('page-nav').style.display = viewMode === 'map' ? 'none' : 'flex';
+  $('map-panel').classList.toggle('visible', viewMode === 'map');
+  if(viewMode === 'map') { drawFeatureMap(); $('page-info').textContent=''; return; }
+  const pp=perPage(), total=Math.max(1,Math.ceil(filteredIndices.length/pp));
+  if(page>=total) page=Math.max(0,total-1);
+  const cols=parseInt($('ctrl-cols').value)||6; $('grid').style.setProperty('--cols',cols);
+  const start=page*pp, slice=filteredIndices.slice(start,start+pp), grid=$('grid'); grid.innerHTML='';
+  const dpr=Math.min(window.devicePixelRatio||1,2);
   slice.forEach(idx=>{
     const card=document.createElement('div');
-    card.className=(viewMode==='geo'?'geo-card':'card')+(flaggedSet.has(idx)?' flagged':'');
-    card.dataset.idx=idx;
-
-    const hdr=document.createElement('div');hdr.className='card-header';
-    const idxSpan=document.createElement('span');idxSpan.className='card-idx';idxSpan.textContent=`#${idx}`;
-    const badges=document.createElement('div');badges.className='card-badges';
-    if(yData&&curveTypes[idx]){
-      const type=curveTypes[idx],tb=document.createElement('span');
-      tb.className='badge badge-'+(type==='s-type'?'s':type==='increasing'?'inc':type==='decreasing'?'dec':'lin');
-      tb.textContent=type==='s-type'?'S':type==='increasing'?'INC':type==='decreasing'?'DEC':'LIN';
-      badges.appendChild(tb);
+    card.className=(viewMode==='geo'?'geo-card':viewMode==='feature'?'feature-card':'card')+(flaggedSet.has(idx)?' flagged':''); card.dataset.idx=idx;
+    const hdr=document.createElement('div'); hdr.className='card-header';
+    const idxSpan=document.createElement('span'); idxSpan.className='card-idx'; idxSpan.textContent=`#${idx}`;
+    const badges=document.createElement('div'); badges.className='card-badges';
+    const f=getFeature(idx);
+    if(f){
+      const sub=getSubtype(idx);
+      const b=document.createElement('span');
+      b.className='badge badge-sub';
+      b.style.color=SUBTYPE_COLORS[sub] || '#d8b4fe';
+      b.style.background=(SUBTYPE_COLORS[sub] || '#d8b4fe') + '22';
+      b.textContent=subtypeShort(sub);
+      badges.appendChild(b);
     }
-    if(yData&&yData[idx]&&yData[idx][yData[idx].length-1]<0.001){
-      const wb=document.createElement('span');wb.className='badge badge-warn';wb.textContent='!';badges.appendChild(wb);
-    }
-    hdr.appendChild(idxSpan);hdr.appendChild(badges);card.appendChild(hdr);
-
-    const cvs=document.createElement('canvas');
-    cvs.className=viewMode==='geo'?'geo-mini':(viewMode==='deriv'?'deriv-mini':'mini');
-    cvs.width=200*dpr;cvs.height=(viewMode==='geo'?120:86)*dpr;
-    card.appendChild(cvs);
-
-    const ftr=document.createElement('div');ftr.className='card-footer';
-    if(viewMode==='curve'&&yData){
-      const yRow=yData[idx];
-      ftr.innerHTML=`<span>σf=${yRow[yRow.length-1].toFixed(3)}</span><span>${xData?`a₁=${xData[idx][0].toFixed(1)}`:''}</span>`;
-    } else if(viewMode==='deriv'&&yData){
-      const f=getCurveFeatures(idx);
-      ftr.innerHTML=f?`<span>CV=${f.cv.toFixed(2)}</span><span>V=${f.valleyProminence.toFixed(2)}</span>`:'<span>features missing</span>';
-    } else if(xData){
-      const p=xData[idx];
-      ftr.innerHTML=`<span>a₁=${p[0].toFixed(1)} b₁=${p[1].toFixed(1)}</span><span>θ₁=${p[2].toFixed(0)}°</span>`;
-    }
+    if(stressRows[idx] && Math.max(...stressRows[idx]) < 0.001){ const wb=document.createElement('span'); wb.className='badge badge-warn'; wb.textContent='LOW'; badges.appendChild(wb); }
+    hdr.appendChild(idxSpan); hdr.appendChild(badges); card.appendChild(hdr);
+    const cvs=document.createElement('canvas'); cvs.className=viewMode==='geo'?'geo-mini':viewMode==='deriv'?'deriv-mini':viewMode==='feature'?'feature-mini':'mini'; cvs.width=200*dpr; cvs.height=(viewMode==='geo'||viewMode==='feature'?126:90)*dpr; card.appendChild(cvs);
+    const ftr=document.createElement('div'); ftr.className='card-footer';
+    if(viewMode==='curve') ftr.innerHTML=`<span>σf=${fmt(stressRows[idx]?.[stressRows[idx].length-1],3)}</span><span>${f?`E=${fmt(f.E_init,2)}`:''}</span>`;
+    else if(viewMode==='deriv') ftr.innerHTML=`<span>kCV=${fmt(f?.k_cv,2)}</span><span>ratio=${fmt(f?.stiffness_ratio,2)}</span>`;
+    else if(viewMode==='geo') ftr.innerHTML=`<span>${geoRows[idx]?.kind==='ellipse_axes' ? `${geoRows[idx].ellipses.length} ellipses` : 'legacy geometry'}</span><span>${f?subtypeShort(getSubtype(idx)):''}</span>`;
+    else ftr.innerHTML=`<span>${$('ctrl-feature').value}=${fmt(featureValue(idx,$('ctrl-feature').value),3)}</span><span>${subtypeShort(getSubtype(idx))}</span>`;
     card.appendChild(ftr);
-
-    const fb=document.createElement('button');fb.className='flag-btn';fb.title='Flag anomaly';fb.textContent='⚑';
-    fb.addEventListener('click',e=>{
-      e.stopPropagation();
-      if(flaggedSet.has(idx))flaggedSet.delete(idx);else flaggedSet.add(idx);
-      card.classList.toggle('flagged');updateStats();
-    });
+    const fb=document.createElement('button'); fb.className='flag-btn'; fb.title='Flag anomaly'; fb.textContent='⚑';
+    fb.addEventListener('click',e=>{e.stopPropagation(); flaggedSet.has(idx)?flaggedSet.delete(idx):flaggedSet.add(idx); card.classList.toggle('flagged'); updateStats(); if(viewMode==='map')drawFeatureMap();});
     card.appendChild(fb);
-    card.addEventListener('click',()=>openModal(idx,viewMode==='geo'?'geo':(viewMode==='deriv'?'deriv':'curve')));
+    card.addEventListener('click',()=>openModal(idx, viewMode==='geo'?'geo':viewMode==='deriv'?'deriv':viewMode==='feature'?'feature':'curve'));
     grid.appendChild(card);
-
     requestAnimationFrame(()=>{
-      if(viewMode==='curve'&&yData)drawMiniCurve(cvs,yData[idx],curveTypes[idx],colorMode,globalMax);
-      else if(viewMode==='deriv'&&yData)drawMiniDerivative(cvs,yData[idx],curveTypes[idx],colorMode,idx);
-      else if(viewMode==='geo'&&xData)drawGeoMini(cvs,xData[idx],flaggedSet.has(idx));
+      if(viewMode==='curve') drawMiniCurve(cvs,stressRows[idx],idx);
+      else if(viewMode==='deriv') drawMiniDerivative(cvs,stressRows[idx],idx);
+      else if(viewMode==='geo') drawGeoMini(cvs,geoRows[idx],idx);
+      else if(viewMode==='feature') drawFeatureMini(cvs,idx);
     });
   });
-
-  $('page-info').textContent=`page ${page+1}/${total}  ·  ${start+1}–${Math.min(start+pp,filteredIndices.length)} of ${filteredIndices.length}`;
-  $('btn-prev').disabled=page===0;
-  $('btn-next').disabled=page>=total-1;
+  $('page-info').textContent = filteredIndices.length ? `page ${page+1}/${total} · ${start+1}–${Math.min(start+pp,filteredIndices.length)} of ${filteredIndices.length}` : 'no cases';
+  $('btn-prev').disabled = page===0; $('btn-next').disabled = page>=total-1;
 }
-
 function updateStats(){
-  const lin=allIndices.filter(i=>curveTypes[i]==='linear').length;
-  const inc=allIndices.filter(i=>curveTypes[i]==='increasing').length;
-  const dec=allIndices.filter(i=>curveTypes[i]==='decreasing').length;
-  const s=allIndices.filter(i=>curveTypes[i]==='s-type').length;
-  $('st-total').textContent=allIndices.length;$('st-lin').textContent=lin;$('st-inc').textContent=inc;
-  $('st-dec').textContent=dec;$('st-s').textContent=s;$('st-flag').textContent=flaggedSet.size;
-  if(yData){$('st-range').textContent=(globalStressMax||1).toFixed(3)+' MPa';}
+  const counts = Object.fromEntries(SUBTYPE_ORDER.map(s=>[s,0]));
+  allIndices.forEach(i=>{ const s=getSubtype(i); if(s in counts) counts[s]++; });
+  $('st-total').textContent=allIndices.length;
+  $('st-linear').textContent=counts['Linear'];
+  $('st-increasing').textContent=counts['Increasing'];
+  $('st-s-smooth').textContent=counts['S-type-Smooth'];
+  $('st-s-negk').textContent=counts['S-type-NegK'];
+  $('st-d-pos').textContent=counts['Decreasing-Positive'];
+  $('st-d-neg').textContent=counts['Decreasing-Negative'];
+  $('st-d-plat').textContent=counts['Decreasing-Plateau'];
+  $('st-flag').textContent=flaggedSet.size;
+  $('st-range').textContent=globalStressMax?fmt(globalStressMax,3)+' MPa':'—';
+  const col=$('ctrl-feature').value, st=featureStats[col]; $('st-feature-range').textContent=st?`${col}: ${fmt(st.p02,2)}–${fmt(st.p98,2)}`:'—';
 }
-
+function activateMain(){
+  recomputeIndices();
+  $('welcome').style.display='none'; $('main').classList.add('visible'); $('stats-bar').classList.add('visible'); $('btn-export').disabled=false;
+  updateStats(); page=0; renderPage();
+}
 function openModal(idx,tab){
   detailIdx=idx;
-  $('modal-title-text').textContent=`Sample #${idx}  ·  ${curveTypes[idx]||''}`;
+  const f=getFeature(idx);
+  $('modal-title-text').textContent=`Case #${idx}  ·  ${getSubtype(idx)}`;
   $('modal-overlay').classList.add('open');
-  if(xData&&xData[idx]){
-    const pg=$('param-grid');pg.innerHTML='';
-    xData[idx].forEach((v,i)=>{
-      const cell=document.createElement('div');cell.className='param-cell';
-      cell.innerHTML=`<div class="param-name">${PARAM_NAMES[i]||'p'+i} (${PARAM_UNITS[i]||''})</div><div class="param-val">${v.toFixed(4)}</div>`;
-      pg.appendChild(cell);
-    });
-  }
+  populateParamGrid(idx);
   setModalTab(tab||'curve');
 }
-
+function populateParamGrid(idx){
+  const pg=$('param-grid'); pg.innerHTML=''; const cells=[];
+  const f=getFeature(idx);
+  if(f){
+    cells.push(['curve_subtype', getSubtype(idx)]);
+    ['E_init','final_stress','energy','stiffness_ratio','k_cv','slope_cv','valley_depth','recovery_gain','local_drop_ratio','local_recovery_ratio','recovery_fraction'].forEach(k=>cells.push([k,f[k]]));
+  }
+  const geo=geoRows[idx];
+  if(geo){
+    cells.push(['geometry_format', geo.kind]);
+    if(geo.kind==='ellipse_axes'){
+      cells.push(['ellipse_count', geo.ellipses.length]);
+      const b=geo.bounds || {};
+      cells.push(['cell_x', `${fmt(b.minX,2)}…${fmt(b.maxX,2)}`]);
+      cells.push(['cell_y', `${fmt(b.minY,2)}…${fmt(b.maxY,2)}`]);
+      geo.ellipses.slice(0,4).forEach(e=>cells.push([`${e.id}: major/minor/θ`, `${fmt(e.major,2)} / ${fmt(e.minor,2)} / ${fmt((e.theta*180/Math.PI+360)%360,1)}°`]));
+    }
+    if(geo.kind==='legacy12') geo.params.forEach((v,i)=>cells.push([`p${i+1}`,v]));
+  }
+  if(stressRows[idx]){ cells.push(['stress_final', stressRows[idx][stressRows[idx].length-1]]); cells.push(['stress_max', Math.max(...stressRows[idx])]); }
+  cells.forEach(([k,v])=>{ const cell=document.createElement('div'); cell.className='param-cell'; cell.innerHTML=`<div class="param-name">${k}</div><div class="param-val">${typeof v==='number'?fmt(v,5):(v ?? '—')}</div>`; pg.appendChild(cell); });
+}
 function setModalTab(tab){
   modalTab=tab;
-  $('modal-curve-pane').classList.toggle('active',tab==='curve');
-  $('modal-geo-pane').classList.toggle('active',tab==='geo');
-  $('modal-deriv-pane').classList.toggle('active',tab==='deriv');
-  $('mtab-curve').classList.toggle('active',tab==='curve');
-  $('mtab-geo').classList.toggle('active',tab==='geo');
-  $('mtab-deriv').classList.toggle('active',tab==='deriv');
-  if(detailRaf)cancelAnimationFrame(detailRaf);
+  ['curve','deriv','geo','feature'].forEach(t=>{
+    $(`modal-${t}-pane`).classList.toggle('active',tab===t);
+    $(`mtab-${t}`).classList.toggle('active',tab===t);
+  });
+  if(detailRaf) cancelAnimationFrame(detailRaf);
   detailRaf=requestAnimationFrame(()=>{
-    if(tab==='curve'&&yData&&detailIdx>=0)drawDetailCurve($('detail-canvas'),yData[detailIdx],detailIdx);
-    if(tab==='geo'&&xData&&detailIdx>=0)drawGeoDetail($('geo-detail-canvas'),xData[detailIdx],detailIdx);
-    if(tab==='deriv'&&yData&&detailIdx>=0)drawDerivativeCurve($('deriv-detail-canvas'),yData[detailIdx],detailIdx);
+    if(tab==='curve') drawDetailCurve($('detail-canvas'),stressRows[detailIdx],detailIdx);
+    if(tab==='deriv') drawDerivativeDetail($('deriv-detail-canvas'),stressRows[detailIdx],detailIdx);
+    if(tab==='geo') drawGeoDetail($('geo-detail-canvas'),geoRows[detailIdx],detailIdx);
+    if(tab==='feature') drawFeatureDetail($('feature-detail-canvas'),detailIdx);
   });
 }
-
-$('mtab-curve').addEventListener('click',()=>setModalTab('curve'));
-$('mtab-geo').addEventListener('click',()=>setModalTab('geo'));
-$('mtab-deriv').addEventListener('click',()=>setModalTab('deriv'));
-
-function showLoading(msg){$('loading-msg').textContent=msg;$('loading').classList.add('visible');}
-function hideLoading(){$('loading').classList.remove('visible');}
-async function loadFile(f){return new Promise(r=>{const rd=new FileReader();rd.onload=e=>r(e.target.result);rd.readAsText(f);});}
-
-async function handleFiles(xFile,yFile,featureFile){
+async function loadFile(file){ return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=e=>resolve(e.target.result); r.onerror=reject; r.readAsText(file); }); }
+function markLoaded(btnId,name){ const b=$(btnId); b.classList.add('loaded'); b.querySelector('.file-name').textContent='✓ '+name; }
+function showLoading(msg){ $('loading-msg').textContent=msg; $('loading').classList.add('visible'); }
+function hideLoading(){ $('loading').classList.remove('visible'); }
+async function handleFiles({geoFile=null, stressFile=null, featFile=null}){
   try{
-    if(xFile){
-      showLoading('Parsing X data…');await new Promise(r=>setTimeout(r,30));
-      xData=parseCSV(await loadFile(xFile));
-      $('btn-x').classList.add('loaded');
-      $('btn-x').querySelector('.dot').after(Object.assign(document.createElement('span'),{textContent:`✓ ${xFile.name}`}));
-    }
-    if(yFile){
-      showLoading('Parsing Y data…');await new Promise(r=>setTimeout(r,30));
-      yData=parseCSV(await loadFile(yFile));
-      globalStressMax=yData.length ? Math.max(...yData.map(r=>Math.max(...r))) : 1;
-      $('btn-y').classList.add('loaded');
-      $('btn-y').querySelector('.dot').after(Object.assign(document.createElement('span'),{textContent:`✓ ${yFile.name}`}));
-    }
-    if(featureFile){
-      showLoading('Parsing feature JSON…');
-      await new Promise(r=>setTimeout(r,30));
-      applyFeatureRows(parseFeatureJSON(await loadFile(featureFile)));
-      $('btn-f').classList.add('loaded');
-      $('btn-f').querySelector('.dot').after(Object.assign(document.createElement('span'),{textContent:`✓ ${featureFile.name}`}));
-    }
-    if(yData||xData){
-      const n=(yData||xData).length;allIndices=Array.from({length:n},(_,i)=>i);
-      $('welcome').style.display='none';$('main').classList.add('visible');$('stats-bar').classList.add('visible');$('btn-export').disabled=false;
-      updateStats();page=0;renderPage();
-      const hint=$('scroll-hint');hint.style.display='block';
-      setTimeout(()=>hint.classList.add('show'),100);
-      setTimeout(()=>{hint.classList.remove('show');setTimeout(()=>hint.style.display='none',400);},3000);
-    }
-  }catch(err){
-    console.error(err);
-    alert('Loading failed: '+(err && err.message ? err.message : err));
-  }finally{
-    hideLoading();
-  }
+    if(geoFile){ showLoading('Parsing geometry CSV…'); await new Promise(r=>setTimeout(r,20)); geoRows=parseGeometryCSV(await loadFile(geoFile)); markLoaded('btn-geo',geoFile.name); }
+    if(stressFile){ showLoading('Parsing stress / strain CSV…'); await new Promise(r=>setTimeout(r,20)); stressRows=parseStressCSV(await loadFile(stressFile)); globalStressMax=stressRows.length?Math.max(...stressRows.map(r=>Math.max(...r.filter(Number.isFinite)))):1; markLoaded('btn-stress',stressFile.name); }
+    if(featFile){ showLoading('Parsing features CSV…'); await new Promise(r=>setTimeout(r,20)); features=parseFeaturesCSV(await loadFile(featFile)); markLoaded('btn-feat',featFile.name); }
+    activateMain();
+  }catch(err){ console.error(err); alert('Loading failed: '+(err?.message || err)); }
+  finally{ hideLoading(); }
+}
+function guessFiles(files){
+  let geoFile=null, stressFile=null, featFile=null;
+  files.forEach(f=>{ const n=f.name.toLowerCase();
+    if(n.includes('feature') || n.includes('summary')) featFile=f;
+    else if(n.includes('geo') || n.includes('param')) geoFile=f;
+    else if(n.includes('stress') || n.includes('strain') || n.includes('result') || n.includes('merged') || n.includes('case')) stressFile=f;
+  });
+  files.forEach(f=>{ if(f.name.toLowerCase().endsWith('.csv')){ if(!geoFile && f!==stressFile && f!==featFile) geoFile=f; else if(!stressFile && f!==geoFile && f!==featFile) stressFile=f; else if(!featFile && f!==geoFile && f!==stressFile) featFile=f; }});
+  return {geoFile,stressFile,featFile};
 }
 
-$('file-x').addEventListener('change',e=>{if(e.target.files[0])handleFiles(e.target.files[0],null,null);});
-$('file-y').addEventListener('change',e=>{if(e.target.files[0])handleFiles(null,e.target.files[0],null);});
-$('file-f').addEventListener('change',e=>{if(e.target.files[0])handleFiles(null,null,e.target.files[0]);});
-
-document.addEventListener('dragover',e=>{e.preventDefault();$('drop-hint').classList.add('active');});
-document.addEventListener('dragleave',e=>{if(!e.relatedTarget)$('drop-hint').classList.remove('active');});
-document.addEventListener('drop',async e=>{
-  e.preventDefault();$('drop-hint').classList.remove('active');
-  const files=[...e.dataTransfer.files];let xF=null,yF=null,fF=null;
-  files.forEach(f=>{
-    const n=f.name.toLowerCase();
-    if(n.endsWith('.json')||n.includes('feature'))fF=f;
-    else if(n.includes('x_data')||n.includes('_x'))xF=f;
-    else if(n.includes('y_data')||n.includes('_y'))yF=f;
-    else if(!xF)xF=f;
-    else if(!yF)yF=f;
-  });
-  await handleFiles(xF,yF,fF);
-});
-
-let wheelAccum=0, wheelTimer=null;
-window.addEventListener('wheel',e=>{
-  if(!yData&&!xData)return;
-  if($('modal-overlay').classList.contains('open'))return;
-  e.preventDefault();
-
-  wheelAccum+=e.deltaY;
-  const THRESHOLD=120; // pixels needed per page flip
-
-  if(wheelAccum>=THRESHOLD){
-    const flips=Math.floor(wheelAccum/THRESHOLD);
-    wheelAccum-=flips*THRESHOLD;
-    const total=Math.ceil(filteredIndices.length/perPage());
-    const newPage=Math.min(page+flips, total-1);
-    if(newPage!==page){page=newPage;renderPage();window.scrollTo(0,0);}
-  } else if(wheelAccum<=-THRESHOLD){
-    const flips=Math.floor(-wheelAccum/THRESHOLD);
-    wheelAccum+=flips*THRESHOLD;
-    const newPage=Math.max(page-flips, 0);
-    if(newPage!==page){page=newPage;renderPage();window.scrollTo(0,0);}
-  }
-
-  // reset accumulator if user stops scrolling
-  clearTimeout(wheelTimer);
-  wheelTimer=setTimeout(()=>{wheelAccum=0;},400);
-},{passive:false});
-
-$('ctrl-cols').addEventListener('change',renderPage);
-$('ctrl-rows').addEventListener('change',renderPage);
-$('ctrl-color').addEventListener('change',renderPage);
-$('ctrl-filter').addEventListener('change',()=>{page=0;renderPage();});
+$('file-geo').addEventListener('change',e=>{ if(e.target.files[0]) handleFiles({geoFile:e.target.files[0]}); });
+$('file-stress').addEventListener('change',e=>{ if(e.target.files[0]) handleFiles({stressFile:e.target.files[0]}); });
+$('file-feat').addEventListener('change',e=>{ if(e.target.files[0]) handleFiles({featFile:e.target.files[0]}); });
+document.addEventListener('dragover',e=>{ e.preventDefault(); $('drop-hint').classList.add('active'); });
+document.addEventListener('dragleave',e=>{ if(!e.relatedTarget) $('drop-hint').classList.remove('active'); });
+document.addEventListener('drop',e=>{ e.preventDefault(); $('drop-hint').classList.remove('active'); handleFiles(guessFiles([...e.dataTransfer.files])); });
 
 function setViewMode(mode){
-  if(mode==='geo'&&!xData){alert('Load X_DATA CSV first.');return;}
-  if((mode==='curve'||mode==='deriv')&&!yData){alert('Load Y_DATA CSV first.');return;}
+  if((mode==='curve'||mode==='deriv') && !stressRows.length) { alert('请先加载 stress / strain CSV。'); return; }
+  if(mode==='geo' && !geoRows.length) { alert('请先加载 geometry CSV。'); return; }
+  if((mode==='feature'||mode==='map') && !features.length) { alert('请先加载 features CSV。'); return; }
   viewMode=mode;
-  $('vt-curve').classList.toggle('active',mode==='curve');
-  $('vt-deriv').classList.toggle('active',mode==='deriv');
-  $('vt-geo').classList.toggle('active',mode==='geo');
-  renderPage();
+  ['curve','deriv','geo','feature','map'].forEach(m=>$(`vt-${m}`).classList.toggle('active',mode===m));
+  page=0; renderPage();
 }
-$('vt-curve').addEventListener('click',()=>setViewMode('curve'));
-$('vt-deriv').addEventListener('click',()=>setViewMode('deriv'));
-$('vt-geo').addEventListener('click',()=>setViewMode('geo'));
-
-$('btn-prev').addEventListener('click',()=>{page--;renderPage();window.scrollTo(0,0);});
-$('btn-next').addEventListener('click',()=>{page++;renderPage();window.scrollTo(0,0);});
-$('btn-goto').addEventListener('click',()=>{
-  const n=parseInt($('goto-input').value);
-  if(!isNaN(n)&&n>=1){const i=filteredIndices.indexOf(n-1);if(i>=0){page=Math.floor(i/perPage());renderPage();window.scrollTo(0,0);}}
+['curve','deriv','geo','feature','map'].forEach(m=>$(`vt-${m}`).addEventListener('click',()=>setViewMode(m)));
+['ctrl-cols','ctrl-rows','ctrl-color','ctrl-filter','ctrl-sort','ctrl-feature','ctrl-map-x','ctrl-map-y'].forEach(id=>$(id).addEventListener('change',()=>{ if(id==='ctrl-feature') updateStats(); page=0; renderPage(); updateStats(); }));
+$('btn-prev').addEventListener('click',()=>{ page=Math.max(0,page-1); renderPage(); window.scrollTo(0,0); });
+$('btn-next').addEventListener('click',()=>{ const total=Math.ceil(filteredIndices.length/perPage()); page=Math.min(total-1,page+1); renderPage(); window.scrollTo(0,0); });
+$('btn-goto').addEventListener('click',()=>{ const n=parseInt($('goto-input').value); if(Number.isInteger(n)&&n>=0){ const k=filteredIndices.indexOf(n); if(k>=0){ page=Math.floor(k/perPage()); renderPage(); window.scrollTo(0,0); } else alert('当前 filter 下没有这个 case。'); }});
+$('feature-map-canvas').addEventListener('click',e=>{
+  if(viewMode!=='map' || !featureMapPoints.length) return;
+  const rect=e.currentTarget.getBoundingClientRect(); const x=e.clientX-rect.left, y=e.clientY-rect.top;
+  let best=null, bd=Infinity; featureMapPoints.forEach(p=>{ const d=(p.x-x)**2+(p.y-y)**2; if(d<bd){bd=d; best=p;} });
+  if(best && bd < 18*18) openModal(best.idx,'feature');
 });
-
+window.addEventListener('resize',()=>{ if(viewMode==='map') drawFeatureMap(); });
+window.addEventListener('wheel',e=>{
+  if(!allIndices.length || $('modal-overlay').classList.contains('open') || viewMode==='map') return;
+  e.preventDefault(); wheelAccum+=e.deltaY; const TH=120;
+  if(wheelAccum>=TH){ const flips=Math.floor(wheelAccum/TH); wheelAccum-=flips*TH; const total=Math.ceil(filteredIndices.length/perPage()); const np=Math.min(page+flips,total-1); if(np!==page){page=np;renderPage();window.scrollTo(0,0);} }
+  else if(wheelAccum<=-TH){ const flips=Math.floor(-wheelAccum/TH); wheelAccum+=flips*TH; const np=Math.max(page-flips,0); if(np!==page){page=np;renderPage();window.scrollTo(0,0);} }
+  clearTimeout(wheelTimer); wheelTimer=setTimeout(()=>{wheelAccum=0;},400);
+},{passive:false});
 document.addEventListener('keydown',e=>{
   if($('modal-overlay').classList.contains('open')){
-    if(e.key==='Escape')$('modal-overlay').classList.remove('open');
-    const n=(yData||xData||{length:0}).length;
-    if(e.key==='ArrowRight'&&detailIdx<n-1)openModal(detailIdx+1,modalTab);
-    if(e.key==='ArrowLeft'&&detailIdx>0)openModal(detailIdx-1,modalTab);
-    if(e.key==='c')setModalTab('curve');
-    if(e.key==='g')setModalTab('geo');
-    if(e.key==='d')setModalTab('deriv');
+    if(e.key==='Escape') $('modal-overlay').classList.remove('open');
+    if(e.key==='ArrowRight' && detailIdx < allIndices[allIndices.length-1]) openModal(detailIdx+1,modalTab);
+    if(e.key==='ArrowLeft' && detailIdx > 0) openModal(detailIdx-1,modalTab);
+    if(e.key==='c') setModalTab('curve'); if(e.key==='s'||e.key==='d') setModalTab('deriv'); if(e.key==='g') setModalTab('geo'); if(e.key==='f') setModalTab('feature');
     return;
   }
   const total=Math.ceil(filteredIndices.length/perPage());
-  if(e.key==='ArrowRight'&&page<total-1){page++;renderPage();window.scrollTo(0,0);}
-  if(e.key==='ArrowLeft'&&page>0){page--;renderPage();window.scrollTo(0,0);}
-  if(e.key==='c')setViewMode('curve');
-  if(e.key==='g')setViewMode('geo');
-  if(e.key==='d')setViewMode('deriv');
+  if(e.key==='ArrowRight'&&page<total-1){page++;renderPage();window.scrollTo(0,0);} if(e.key==='ArrowLeft'&&page>0){page--;renderPage();window.scrollTo(0,0);}
+  if(e.key==='c') setViewMode('curve'); if(e.key==='s'||e.key==='d') setViewMode('deriv'); if(e.key==='g') setViewMode('geo'); if(e.key==='f') setViewMode('feature'); if(e.key==='m') setViewMode('map');
 });
-
+['curve','deriv','geo','feature'].forEach(t=>$(`mtab-${t}`).addEventListener('click',e=>{ e.stopPropagation(); setModalTab(t); }));
 $('modal-close').addEventListener('click',()=>$('modal-overlay').classList.remove('open'));
-$('modal-overlay').addEventListener('click',e=>{if(e.target===$('modal-overlay'))$('modal-overlay').classList.remove('open');});
+$('modal-overlay').addEventListener('click',e=>{ if(e.target===$('modal-overlay')) $('modal-overlay').classList.remove('open'); });
 $('btn-export').addEventListener('click',()=>{
-  const lines=['index',...[...flaggedSet].sort((a,b)=>a-b)].join('\n');
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([lines],{type:'text/plain'}));
-  a.download='flagged_indices.txt';a.click();
+  const lines=['case_id',...[...flaggedSet].sort((a,b)=>a-b)].join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([lines],{type:'text/csv'})); a.download='flagged_case_ids.csv'; a.click(); URL.revokeObjectURL(a.href);
 });
 </script>
-<script src="site-nav.js" data-current="curve_inspector_raw_diff_fixed_click.html"></script>
 </body>
 </html>
