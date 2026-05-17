@@ -2,6 +2,7 @@ const SITE_PAGES = [
   { href: "index.html", label: "工具首页" },
   { href: "curve_inspector_raw_diff_fixed_click.html", label: "曲线检查器" },
   { href: "hole_geometry_stats.html", label: "孔几何统计" },
+  { href: "prediction_curve_compare.html", label: "预测曲线对比" },
 ];
 
 function normalizePage(path) {

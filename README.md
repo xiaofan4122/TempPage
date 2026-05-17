@@ -7,6 +7,7 @@
 - `index.html`：工具首页。
 - `curve_inspector_raw_diff_fixed_click.html`：曲线检查器。网页读取 `X/Y CSV` 和预先生成的 `curve_features.json`。
 - `hole_geometry_stats.html`：孔几何统计。网页读取 `hole_data_abaqus_geom.csv` 后在浏览器内计算统计图表。
+- `prediction_curve_compare.html`：预测曲线对比。网页读取原始 sim 结果 CSV 和预测结果 CSV，计算 endpoint/area/relative L2/R² 并显示交互图。
 
 ## 新增页面
 

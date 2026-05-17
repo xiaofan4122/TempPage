@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>预测曲线对比检查器</title>
+<link rel="stylesheet" href="site-nav.css">
+<style>
+  * { box-sizing: border-box; }
+  :root {
+    --bg: #0a0c0f;
+    --panel: #11161c;
+    --panel2: #171e26;
+    --line: #26313d;
+    --text: #e5eef7;
+    --muted: #8997a8;
+    --accent: #00d4aa;
+    --blue: #4da3ff;
+    --red: #ff6b57;
+    --yellow: #f2c94c;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(10, 12, 15, 0.96);
+  }
+  .logo {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: .06em;
+    margin-right: 8px;
+  }
+  label.file {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel2);
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  label.file:hover { border-color: var(--accent); }
+  label.file input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  label.file.loaded .dot { background: var(--accent); }
+  .controls {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  select, input[type=number] {
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 5px;
+    padding: 5px 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  label.check {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    user-select: none;
+  }
+  label.check input {
+    accent-color: var(--accent);
+  }
+  button {
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #00120f;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  button.secondary {
+    background: transparent;
+    color: var(--accent);
+  }
+  button:disabled { opacity: .4; cursor: default; }
+  #status {
+    display: none;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    font-family: var(--mono);
+    color: var(--muted);
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  #status.visible { display: flex; }
+  .stat span { color: var(--accent); font-weight: 700; }
+  #welcome {
+    min-height: calc(100vh - 60px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+  }
+  #welcome h1 {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-size: 24px;
+    margin: 0 0 12px;
+  }
+  #main {
+    display: none;
+    padding: 10px 12px 24px;
+  }
+  #main.visible { display: block; }
+  .pager {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  #pageInfo {
+    margin-left: auto;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  #summaryPanel {
+    display: none;
+    margin-bottom: 12px;
+  }
+  #summaryPanel.visible { display: block; }
+  .summaryTop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .summaryActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #summaryPanel.collapsed #summaryCards,
+  #summaryPanel.collapsed .charts {
+    display: none;
+  }
+  .summaryTitle {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .summaryNote {
+    font-family: var(--mono);
+    color: var(--muted);
+    font-size: 10px;
+  }
+  #summaryCards {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(110px, 1fr));
+    gap: 7px;
+    margin-bottom: 8px;
+  }
+  .metricBig {
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    padding: 7px 8px;
+    font-family: var(--mono);
+    min-height: 50px;
+  }
+  .metricBig b {
+    display: block;
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 400;
+    margin-bottom: 3px;
+  }
+  .metricBig span {
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .metricBig.good span { color: var(--accent); }
+  .metricBig.warn span { color: var(--yellow); }
+  .metricBig.bad span { color: var(--red); }
+  .charts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(180px, 1fr));
+    gap: 8px;
+  }
+  .chartCard {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 7px;
+  }
+  .chartTitle {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .chartCard canvas {
+    display: block;
+    width: 100%;
+    height: 145px;
+    cursor: crosshair;
+  }
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), minmax(128px, 1fr));
+    gap: 7px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .card:hover { border-color: var(--blue); }
+  .card.bad { border-color: var(--red); }
+  .cardHead {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 7px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 9px;
+  }
+  .badge {
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: rgba(77, 163, 255, .14);
+    color: var(--blue);
+  }
+  .badge.bad {
+    background: rgba(255, 107, 87, .14);
+    color: var(--red);
+  }
+  canvas.mini {
+    width: 100%;
+    height: 82px;
+    display: block;
+  }
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    border-top: 1px solid var(--line);
+    background: var(--line);
+    font-family: var(--mono);
+    font-size: 8px;
+  }
+  .metric {
+    background: var(--panel2);
+    padding: 3px 5px;
+  }
+  .metric b {
+    display: block;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .metric span { color: var(--text); }
+  #modalOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(0,0,0,.72);
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+  }
+  #modalOverlay.open { display: flex; }
+  #modal {
+    width: min(980px, 96vw);
+    max-height: 92vh;
+    overflow: auto;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .modalHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-family: var(--mono);
+    color: var(--accent);
+  }
+  #detailCanvas {
+    width: 100%;
+    height: 420px;
+    display: block;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #0c1116;
+  }
+  .detailMetrics {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .detailMetrics .metric {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .hint {
+    color: var(--muted);
+    line-height: 1.8;
+    max-width: 720px;
+  }
+  #scrollHint {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 40;
+    display: none;
+    padding: 7px 11px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: rgba(17, 22, 28, .96);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .25s;
+  }
+  #scrollHint.show { opacity: 1; }
+  @media (max-width: 900px) {
+    #grid { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
+    #summaryCards { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+    .charts { grid-template-columns: repeat(1, minmax(220px, 1fr)); }
+    .detailMetrics { grid-template-columns: repeat(2, 1fr); }
+    .controls { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">CURVE PREDICTION CHECK</div>
+  <label class="file" id="simLabel"><span class="dot"></span>原始 sim 结果 CSV<input id="simFile" type="file" accept=".csv"></label>
+  <label class="file" id="predLabel"><span class="dot"></span>预测结果 CSV<input id="predFile" type="file" accept=".csv"></label>
+  <div class="controls">
+    <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">排序</span>
+    <select id="sortMode">
+      <option value="sample">sample_id</option>
+      <option value="rel_desc">relative L2 从大到小</option>
+      <option value="endpoint_desc">endpoint 误差从大到小</option>
+      <option value="area_desc">area 误差从大到小</option>
+      <option value="endpoint_true_desc">真实 endpoint 从大到小</option>
+    </select>
+    <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">列</span>
+    <input id="colsInput" type="number" min="2" max="10" value="5">
+    <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">行</span>
+    <input id="rowsInput" type="number" min="2" max="10" value="6">
+    <label class="check"><input id="globalYInput" type="checkbox">统一 Y 轴</label>
+    <button class="secondary" id="exportBtn" disabled>导出误差表</button>
+  </div>
+</header>
+<div id="scrollHint">滚轮翻页 · ←/→ 翻页 · 点击看大图</div>
+
+<div id="status">
+  <div class="stat">samples <span id="stSamples">0</span></div>
+  <div class="stat">mean rel L2 <span id="stRel">-</span></div>
+  <div class="stat">endpoint MAE <span id="stEndpoint">-</span></div>
+  <div class="stat">area MAE <span id="stArea">-</span></div>
+  <div class="stat">当前说明 <span id="stNote">等待导入</span></div>
+</div>
+
+<section id="welcome">
+  <h1>预测曲线对比检查器</h1>
+  <p class="hint">
+    导入两个同格式 CSV：原始 Abaqus/sim 结果和预测结果。每个样本两行一组，
+    第一行为 strain，第二行为 stress。页面会自动转成压缩正值，画真实曲线与预测曲线，
+    并计算 endpoint、area、relative L2。预测脚本输出的
+    <code>predicted_case_results_merged.csv</code> 可以直接放进这里。
+  </p>
+</section>
+
+<main id="main">
+  <section id="summaryPanel">
+    <div class="summaryTop">
+      <div class="summaryTitle">全局误差统计</div>
+      <div class="summaryActions">
+        <div class="summaryNote">R² = 1 - Σ(y_true - y_pred)² / Σ(y_true - mean(y_true))²</div>
+        <button class="secondary" id="summaryToggleBtn">收起统计</button>
+      </div>
+    </div>
+    <div id="summaryCards"></div>
+    <div class="charts">
+      <div class="chartCard">
+        <div class="chartTitle">endpoint true vs pred</div>
+        <canvas id="chartEndpointScatter"></canvas>
+      </div>
+      <div class="chartCard">
+        <div class="chartTitle">area true vs pred</div>
+        <canvas id="chartAreaScatter"></canvas>
+      </div>
+      <div class="chartCard">
+        <div class="chartTitle">relative L2 distribution</div>
+        <canvas id="chartRelHist"></canvas>
+      </div>
+      <div class="chartCard">
+        <div class="chartTitle">endpoint residual vs true endpoint</div>
+        <canvas id="chartResidual"></canvas>
+      </div>
+    </div>
+  </section>
+  <div class="pager">
+    <button id="prevBtn">上一页</button>
+    <button id="nextBtn">下一页</button>
+    <input id="gotoInput" type="number" min="0" placeholder="sample id" style="width:96px">
+    <button class="secondary" id="gotoBtn">跳转</button>
+    <div id="pageInfo"></div>
+  </div>
+  <div id="grid"></div>
+</main>
+
+<div id="modalOverlay">
+  <div id="modal">
+    <div class="modalHead">
+      <div id="modalTitle">sample</div>
+      <button class="secondary" id="closeBtn">关闭</button>
+    </div>
+    <canvas id="detailCanvas"></canvas>
+    <div class="detailMetrics" id="detailMetrics"></div>
+  </div>
+</div>
+
+<script>
+const state = {
+  sim: null,
+  pred: null,
+  rows: [],
+  order: [],
+  page: 0,
+  perPage: 30,
+  globalYMax: 1,
+  chartPoints: {},
+};
+
+function splitCsvLine(line) {
+  const out = [];
+  let cur = "";
+  let quote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      quote = !quote;
+    } else if (ch === "," && !quote) {
+      out.push(cur);
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+function numericRow(line) {
+  return splitCsvLine(line).map(v => Number(String(v).trim())).filter(v => Number.isFinite(v));
+}
+
+function parseTwoLineCurves(text) {
+  const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (lines.length % 2 !== 0) {
+    throw new Error(`CSV 行数不是偶数：${lines.length}`);
+  }
+  const samples = [];
+  for (let i = 0; i < lines.length; i += 2) {
+    let x = numericRow(lines[i]);
+    let y = numericRow(lines[i + 1]);
+    if (x.length !== y.length) {
+      const n = Math.min(x.length, y.length);
+      x = x.slice(0, n);
+      y = y.slice(0, n);
+    }
+    if (x.length < 2) continue;
+    const xLast = x[x.length - 1];
+    const yMean = y.reduce((a, b) => a + b, 0) / y.length;
+    if (xLast < 0) x = x.map(v => -v);
+    if (yMean < 0 || Math.abs(Math.min(...y)) > Math.abs(Math.max(...y))) y = y.map(v => -v);
+    const pairs = x.map((v, idx) => [v, y[idx]]).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+    pairs.sort((a, b) => a[0] - b[0]);
+    samples.push({ id: samples.length, x: pairs.map(p => p[0]), y: pairs.map(p => p[1]) });
+  }
+  return samples;
+}
+
+function interp(x, y, xq) {
+  const out = [];
+  let j = 0;
+  for (const q of xq) {
+    while (j < x.length - 2 && x[j + 1] < q) j++;
+    if (q <= x[0]) {
+      out.push(y[0]);
+    } else if (q >= x[x.length - 1]) {
+      out.push(y[y.length - 1]);
+    } else {
+      const t = (q - x[j]) / Math.max(x[j + 1] - x[j], 1e-12);
+      out.push(y[j] * (1 - t) + y[j + 1] * t);
+    }
+  }
+  return out;
+}
+
+function trapz(x, y) {
+  let s = 0;
+  for (let i = 1; i < x.length; i++) s += 0.5 * (y[i] + y[i - 1]) * (x[i] - x[i - 1]);
+  return s;
+}
+
+function l2(a, b) {
+  let num = 0, den = 0;
+  for (let i = 0; i < a.length; i++) {
+    num += (a[i] - b[i]) ** 2;
+    den += a[i] ** 2;
+  }
+  return Math.sqrt(num) / Math.max(Math.sqrt(den), 1e-12);
+}
+
+function mean(arr) {
+  return arr.reduce((a, b) => a + b, 0) / Math.max(arr.length, 1);
+}
+
+function rmse(trueVals, predVals) {
+  let s = 0;
+  for (let i = 0; i < trueVals.length; i++) s += (trueVals[i] - predVals[i]) ** 2;
+  return Math.sqrt(s / Math.max(trueVals.length, 1));
+}
+
+function mae(trueVals, predVals) {
+  let s = 0;
+  for (let i = 0; i < trueVals.length; i++) s += Math.abs(trueVals[i] - predVals[i]);
+  return s / Math.max(trueVals.length, 1);
+}
+
+function r2Score(trueVals, predVals) {
+  const m = mean(trueVals);
+  let ssRes = 0, ssTot = 0;
+  for (let i = 0; i < trueVals.length; i++) {
+    ssRes += (trueVals[i] - predVals[i]) ** 2;
+    ssTot += (trueVals[i] - m) ** 2;
+  }
+  return ssTot <= 1e-12 ? NaN : 1 - ssRes / ssTot;
+}
+
+function quantile(vals, q) {
+  if (!vals.length) return NaN;
+  const sorted = [...vals].sort((a, b) => a - b);
+  const pos = (sorted.length - 1) * q;
+  const lo = Math.floor(pos), hi = Math.ceil(pos);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] * (hi - pos) + sorted[hi] * (pos - lo);
+}
+
+function fmt(v, n = 4) {
+  if (!Number.isFinite(v)) return "-";
+  if (Math.abs(v) >= 100) return v.toFixed(2);
+  if (Math.abs(v) >= 10) return v.toFixed(3);
+  return v.toFixed(n);
+}
+
+function buildRows() {
+  if (!state.sim || !state.pred) return;
+  const n = Math.min(state.sim.length, state.pred.length);
+  state.rows = [];
+  for (let i = 0; i < n; i++) {
+    const sim = state.sim[i];
+    const pred = state.pred[i];
+    const predOnSim = interp(pred.x, pred.y, sim.x);
+    const simOnPred = interp(sim.x, sim.y, pred.x);
+    const endpointTrue = sim.y[sim.y.length - 1];
+    const endpointPred = pred.y[pred.y.length - 1];
+    const areaTrue = trapz(sim.x, sim.y);
+    const areaPred = trapz(pred.x, pred.y);
+    state.rows.push({
+      sample_id: i,
+      sim,
+      pred,
+      predOnSim,
+      simOnPred,
+      endpointTrue,
+      endpointPred,
+      endpointAbsErr: Math.abs(endpointPred - endpointTrue),
+      endpointRelErr: Math.abs(endpointPred - endpointTrue) / Math.max(Math.abs(endpointTrue), 1e-12),
+      areaTrue,
+      areaPred,
+      areaAbsErr: Math.abs(areaPred - areaTrue),
+      relL2: l2(sim.y, predOnSim),
+    });
+  }
+  let ymax = 1e-9;
+  for (const r of state.rows) {
+    for (const v of r.sim.y) if (Number.isFinite(v) && v > ymax) ymax = v;
+    for (const v of r.pred.y) if (Number.isFinite(v) && v > ymax) ymax = v;
+  }
+  state.globalYMax = ymax * 1.04;
+  updateOrder();
+  updateStats();
+  document.getElementById("welcome").style.display = "none";
+  document.getElementById("main").classList.add("visible");
+  document.getElementById("status").classList.add("visible");
+  document.getElementById("summaryPanel").classList.add("visible");
+  showScrollHint();
+  document.getElementById("exportBtn").disabled = false;
+  renderSummaryPanel();
+  render();
+}
+
+function updateOrder() {
+  const mode = document.getElementById("sortMode").value;
+  state.order = state.rows.map((_, i) => i);
+  const key = {
+    sample: r => r.sample_id,
+    rel_desc: r => -r.relL2,
+    endpoint_desc: r => -r.endpointAbsErr,
+    area_desc: r => -r.areaAbsErr,
+    endpoint_true_desc: r => -r.endpointTrue,
+  }[mode];
+  state.order.sort((a, b) => key(state.rows[a]) - key(state.rows[b]));
+  state.page = 0;
+}
+
+function updateStats() {
+  const rows = state.rows;
+  const endpointTrue = rows.map(r => r.endpointTrue);
+  const endpointPred = rows.map(r => r.endpointPred);
+  document.getElementById("stSamples").textContent = rows.length;
+  document.getElementById("stRel").textContent = fmt(mean(rows.map(r => r.relL2)));
+  document.getElementById("stEndpoint").textContent = fmt(mean(rows.map(r => r.endpointAbsErr)));
+  document.getElementById("stArea").textContent = fmt(mean(rows.map(r => r.areaAbsErr)));
+  document.getElementById("stNote").textContent = state.sim.length === state.pred.length ? `样本数一致 · endpoint R² ${fmt(r2Score(endpointTrue, endpointPred), 4)}` : `样本数不一致 sim=${state.sim.length}, pred=${state.pred.length}`;
+}
+
+function globalStats() {
+  const rows = state.rows;
+  const endpointTrue = rows.map(r => r.endpointTrue);
+  const endpointPred = rows.map(r => r.endpointPred);
+  const areaTrue = rows.map(r => r.areaTrue);
+  const areaPred = rows.map(r => r.areaPred);
+  const rel = rows.map(r => r.relL2);
+  const trueFlat = [];
+  const predFlat = [];
+  for (const r of rows) {
+    for (let i = 0; i < r.sim.y.length; i++) {
+      trueFlat.push(r.sim.y[i]);
+      predFlat.push(r.predOnSim[i]);
+    }
+  }
+  return {
+    endpointR2: r2Score(endpointTrue, endpointPred),
+    endpointMAE: mae(endpointTrue, endpointPred),
+    endpointRMSE: rmse(endpointTrue, endpointPred),
+    areaR2: r2Score(areaTrue, areaPred),
+    areaMAE: mae(areaTrue, areaPred),
+    areaRMSE: rmse(areaTrue, areaPred),
+    curvePointR2: r2Score(trueFlat, predFlat),
+    relMean: mean(rel),
+    relMedian: quantile(rel, 0.5),
+    relP90: quantile(rel, 0.9),
+    relP95: quantile(rel, 0.95),
+  };
+}
+
+function metricClass(value, kind) {
+  if (!Number.isFinite(value)) return "";
+  if (kind === "r2") return value >= 0.98 ? "good" : value >= 0.90 ? "warn" : "bad";
+  if (kind === "rel") return value <= 0.05 ? "good" : value <= 0.12 ? "warn" : "bad";
+  return "";
+}
+
+function boundsFor(row) {
+  const xs = row.sim.x.concat(row.pred.x);
+  const ys = row.sim.y.concat(row.pred.y);
+  if (document.getElementById("globalYInput")?.checked && state.rows.length) {
+    return {
+      xmin: Math.min(...xs),
+      xmax: Math.max(...xs),
+      ymin: 0,
+      ymax: state.globalYMax || 1,
+    };
+  }
+  return {
+    xmin: Math.min(...xs),
+    xmax: Math.max(...xs),
+    ymin: Math.min(0, ...ys),
+    ymax: Math.max(...ys) * 1.04 + 1e-9,
+  };
+}
+
+function drawCurve(canvas, row, detail = false) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+  canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, rect.width, rect.height);
+  const pad = detail ? 46 : 24;
+  const right = detail ? 20 : 8;
+  const top = detail ? 20 : 10;
+  const b = boundsFor(row);
+  const sx = x => pad + (x - b.xmin) / Math.max(b.xmax - b.xmin, 1e-12) * (rect.width - pad - right);
+  const sy = y => rect.height - pad - (y - b.ymin) / Math.max(b.ymax - b.ymin, 1e-12) * (rect.height - pad - top);
+
+  ctx.strokeStyle = "#26313d";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad, top);
+  ctx.lineTo(pad, rect.height - pad);
+  ctx.lineTo(rect.width - right, rect.height - pad);
+  ctx.stroke();
+
+  function line(x, y, color, width) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    for (let i = 0; i < x.length; i++) {
+      const px = sx(x[i]);
+      const py = sy(y[i]);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+  line(row.sim.x, row.sim.y, "#00d4aa", detail ? 2.3 : 1.6);
+  line(row.pred.x, row.pred.y, "#ff6b57", detail ? 2.1 : 1.4);
+
+  if (detail) {
+    ctx.fillStyle = "#8997a8";
+    ctx.font = "12px ui-monospace, monospace";
+    ctx.fillText("compression strain", rect.width / 2 - 64, rect.height - 10);
+    ctx.save();
+    ctx.translate(14, rect.height / 2 + 58);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText("compression stress", 0, 0);
+    ctx.restore();
+    ctx.fillStyle = "#00d4aa";
+    ctx.fillText("true sim", pad + 10, top + 14);
+    ctx.fillStyle = "#ff6b57";
+    ctx.fillText("pred", pad + 88, top + 14);
+  }
+}
+
+function setupCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+  canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, rect.width, rect.height);
+  return { ctx, w: rect.width, h: rect.height };
+}
+
+function drawAxes(ctx, w, h, pad) {
+  ctx.strokeStyle = "#26313d";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad, 12);
+  ctx.lineTo(pad, h - pad);
+  ctx.lineTo(w - 10, h - pad);
+  ctx.stroke();
+}
+
+function drawScatter(canvas, xs, ys, options = {}) {
+  const { ctx, w, h } = setupCanvas(canvas);
+  const pad = 28;
+  const xmin = Math.min(...xs), xmax = Math.max(...xs);
+  const ymin = Math.min(...ys), ymax = Math.max(...ys);
+  const lo = Math.min(xmin, ymin);
+  const hi = Math.max(xmax, ymax);
+  const x0 = options.identity ? lo : xmin;
+  const x1 = options.identity ? hi : xmax;
+  const y0 = options.identity ? lo : ymin;
+  const y1 = options.identity ? hi : ymax;
+  const sx = x => pad + (x - x0) / Math.max(x1 - x0, 1e-12) * (w - pad - 10);
+  const sy = y => h - pad - (y - y0) / Math.max(y1 - y0, 1e-12) * (h - pad - 12);
+  const clickable = [];
+  drawAxes(ctx, w, h, pad);
+  if (options.identity) {
+    ctx.strokeStyle = "#8997a8";
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(sx(lo), sy(lo));
+    ctx.lineTo(sx(hi), sy(hi));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  ctx.fillStyle = options.color || "#00d4aa";
+  for (let i = 0; i < xs.length; i++) {
+    const px = sx(xs[i]);
+    const py = sy(ys[i]);
+    ctx.globalAlpha = 0.28;
+    ctx.beginPath();
+    ctx.arc(px, py, 2.1, 0, Math.PI * 2);
+    ctx.fill();
+    if (options.sampleIds) clickable.push({ x: px, y: py, sampleId: options.sampleIds[i] });
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#8997a8";
+  ctx.font = "10px ui-monospace, monospace";
+  ctx.fillText(fmt(x0, 2), pad, h - 6);
+  ctx.fillText(fmt(x1, 2), w - 46, h - 6);
+  ctx.fillText(fmt(y1, 2), 4, 16);
+  if (options.chartId) state.chartPoints[options.chartId] = clickable;
+}
+
+function drawHistogram(canvas, vals, options = {}) {
+  const { ctx, w, h } = setupCanvas(canvas);
+  const pad = 28;
+  const nBins = options.bins || 30;
+  const vmin = Math.min(...vals);
+  const vmax = Math.max(...vals);
+  const bins = new Array(nBins).fill(0);
+  for (const v of vals) {
+    const b = Math.min(nBins - 1, Math.max(0, Math.floor((v - vmin) / Math.max(vmax - vmin, 1e-12) * nBins)));
+    bins[b] += 1;
+  }
+  drawAxes(ctx, w, h, pad);
+  const maxCount = Math.max(...bins, 1);
+  const bw = (w - pad - 10) / nBins;
+  ctx.fillStyle = options.color || "#4da3ff";
+  for (let i = 0; i < nBins; i++) {
+    const bh = bins[i] / maxCount * (h - pad - 14);
+    ctx.globalAlpha = 0.75;
+    ctx.fillRect(pad + i * bw + 1, h - pad - bh, Math.max(1, bw - 2), bh);
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#8997a8";
+  ctx.font = "10px ui-monospace, monospace";
+  ctx.fillText(fmt(vmin, 3), pad, h - 6);
+  ctx.fillText(fmt(vmax, 3), w - 48, h - 6);
+}
+
+function renderSummaryPanel() {
+  if (!state.rows.length) return;
+  const stats = globalStats();
+  const cards = [
+    ["endpoint R²", stats.endpointR2, "r2"],
+    ["endpoint MAE", stats.endpointMAE, ""],
+    ["endpoint RMSE", stats.endpointRMSE, ""],
+    ["area R²", stats.areaR2, "r2"],
+    ["area MAE", stats.areaMAE, ""],
+    ["curve point R²", stats.curvePointR2, "r2"],
+    ["rel L2 mean", stats.relMean, "rel"],
+    ["rel L2 p95", stats.relP95, "rel"],
+  ];
+  document.getElementById("summaryCards").innerHTML = cards.map(([name, value, kind]) => (
+    `<div class="metricBig ${metricClass(value, kind)}"><b>${name}</b><span>${fmt(value, kind === "r2" || kind === "rel" ? 4 : 3)}</span></div>`
+  )).join("");
+  const endpointTrue = state.rows.map(r => r.endpointTrue);
+  const endpointPred = state.rows.map(r => r.endpointPred);
+  const areaTrue = state.rows.map(r => r.areaTrue);
+  const areaPred = state.rows.map(r => r.areaPred);
+  const rel = state.rows.map(r => r.relL2);
+  const residual = state.rows.map(r => r.endpointPred - r.endpointTrue);
+  const sampleIds = state.rows.map(r => r.sample_id);
+  drawScatter(document.getElementById("chartEndpointScatter"), endpointTrue, endpointPred, { identity: true, color: "#00d4aa", chartId: "endpoint", sampleIds });
+  drawScatter(document.getElementById("chartAreaScatter"), areaTrue, areaPred, { identity: true, color: "#4da3ff", chartId: "area", sampleIds });
+  drawHistogram(document.getElementById("chartRelHist"), rel, { bins: 32, color: "#f2c94c" });
+  drawScatter(document.getElementById("chartResidual"), endpointTrue, residual, { identity: false, color: "#ff6b57", chartId: "residual", sampleIds });
+}
+
+function render() {
+  const cols = Number(document.getElementById("colsInput").value) || 4;
+  const rowsPerPage = Number(document.getElementById("rowsInput").value) || 4;
+  document.getElementById("grid").style.setProperty("--cols", cols);
+  state.perPage = cols * rowsPerPage;
+  const start = state.page * state.perPage;
+  const ids = state.order.slice(start, start + state.perPage);
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  const relVals = state.rows.map(r => r.relL2).sort((a, b) => a - b);
+  const badCut = relVals[Math.floor(relVals.length * 0.9)] || Infinity;
+  for (const idx of ids) {
+    const r = state.rows[idx];
+    const card = document.createElement("div");
+    card.className = "card" + (r.relL2 >= badCut ? " bad" : "");
+    card.innerHTML = `
+      <div class="cardHead">
+        <span>#${r.sample_id}</span>
+        <span class="badge ${r.relL2 >= badCut ? "bad" : ""}">L2 ${fmt(r.relL2, 3)}</span>
+      </div>
+      <canvas class="mini"></canvas>
+      <div class="metrics">
+        <div class="metric"><b>endpoint T/P</b><span>${fmt(r.endpointTrue)} / ${fmt(r.endpointPred)}</span></div>
+        <div class="metric"><b>endpoint err</b><span>${fmt(r.endpointAbsErr)}</span></div>
+        <div class="metric"><b>area err</b><span>${fmt(r.areaAbsErr)}</span></div>
+      </div>`;
+    card.onclick = () => openDetail(r);
+    grid.appendChild(card);
+    drawCurve(card.querySelector("canvas"), r, false);
+  }
+  const totalPages = Math.ceil(state.order.length / state.perPage);
+  document.getElementById("pageInfo").textContent = `page ${state.page + 1} / ${Math.max(totalPages, 1)} · samples ${start}-${Math.min(start + state.perPage, state.order.length) - 1}`;
+  document.getElementById("prevBtn").disabled = state.page <= 0;
+  document.getElementById("nextBtn").disabled = state.page >= totalPages - 1;
+}
+
+function totalPages() {
+  return Math.max(1, Math.ceil(state.order.length / Math.max(state.perPage, 1)));
+}
+
+function setPage(nextPage) {
+  const maxPage = totalPages() - 1;
+  const clamped = Math.max(0, Math.min(maxPage, nextPage));
+  if (clamped !== state.page) {
+    state.page = clamped;
+    render();
+    window.scrollTo(0, 0);
+  }
+}
+
+let scrollHintTimer = null;
+function showScrollHint() {
+  const hint = document.getElementById("scrollHint");
+  hint.style.display = "block";
+  requestAnimationFrame(() => hint.classList.add("show"));
+  clearTimeout(scrollHintTimer);
+  scrollHintTimer = setTimeout(() => hint.classList.remove("show"), 2200);
+}
+
+function openDetail(row) {
+  document.getElementById("modalTitle").textContent = `sample #${row.sample_id}`;
+  document.getElementById("modalOverlay").classList.add("open");
+  const canvas = document.getElementById("detailCanvas");
+  requestAnimationFrame(() => drawCurve(canvas, row, true));
+  const metrics = [
+    ["true endpoint", row.endpointTrue],
+    ["pred endpoint", row.endpointPred],
+    ["endpoint abs err", row.endpointAbsErr],
+    ["endpoint rel err", row.endpointRelErr],
+    ["true area", row.areaTrue],
+    ["pred area", row.areaPred],
+    ["area abs err", row.areaAbsErr],
+    ["relative L2", row.relL2],
+    ["sim points", row.sim.x.length],
+    ["pred points", row.pred.x.length],
+    ["sim x end", row.sim.x[row.sim.x.length - 1]],
+    ["pred x end", row.pred.x[row.pred.x.length - 1]],
+  ];
+  document.getElementById("detailMetrics").innerHTML = metrics.map(([k, v]) => `<div class="metric"><b>${k}</b><span>${fmt(v)}</span></div>`).join("");
+}
+
+function focusSample(sampleId, openModal = false) {
+  const rowIndex = state.rows.findIndex(r => r.sample_id === sampleId);
+  if (rowIndex < 0) return;
+  const orderPos = state.order.findIndex(i => state.rows[i].sample_id === sampleId);
+  if (orderPos >= 0) {
+    state.page = Math.floor(orderPos / state.perPage);
+    render();
+    window.scrollTo(0, 0);
+  }
+  if (openModal) openDetail(state.rows[rowIndex]);
+}
+
+function handleChartClick(chartId, canvas, event) {
+  const points = state.chartPoints[chartId] || [];
+  if (!points.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  let best = null;
+  let bestD = Infinity;
+  for (const p of points) {
+    const d = (p.x - x) ** 2 + (p.y - y) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = p;
+    }
+  }
+  if (best && bestD <= 144) focusSample(best.sampleId, true);
+}
+
+async function loadFile(input, kind) {
+  const file = input.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = parseTwoLineCurves(text);
+    state[kind] = parsed;
+    document.getElementById(kind === "sim" ? "simLabel" : "predLabel").classList.add("loaded");
+    document.getElementById("status").classList.add("visible");
+    document.getElementById("stNote").textContent = `${kind === "sim" ? "真实" : "预测"} CSV 已导入：${parsed.length} 条`;
+    buildRows();
+  } catch (err) {
+    document.getElementById("status").classList.add("visible");
+    document.getElementById("stNote").textContent = `导入失败：${err.message || err}`;
+    console.error(err);
+    alert(`导入失败：${err.message || err}`);
+  }
+}
+
+function exportErrors() {
+  const stats = globalStats();
+  const header = ["sample_id","endpoint_true","endpoint_pred","endpoint_abs_error","endpoint_relative_error","area_true","area_pred","area_abs_error","relative_L2","sim_points","pred_points","global_endpoint_R2","global_area_R2","global_curve_point_R2","global_rel_L2_mean","global_rel_L2_p95"];
+  const lines = [header.join(",")];
+  for (const r of state.rows) {
+    lines.push([
+      r.sample_id,
+      r.endpointTrue,
+      r.endpointPred,
+      r.endpointAbsErr,
+      r.endpointRelErr,
+      r.areaTrue,
+      r.areaPred,
+      r.areaAbsErr,
+      r.relL2,
+      r.sim.x.length,
+      r.pred.x.length,
+      stats.endpointR2,
+      stats.areaR2,
+      stats.curvePointR2,
+      stats.relMean,
+      stats.relP95,
+    ].join(","));
+  }
+  const blob = new Blob([lines.join("\n")], {type: "text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "prediction_error_table.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById("simFile").addEventListener("change", e => loadFile(e.target, "sim"));
+document.getElementById("predFile").addEventListener("change", e => loadFile(e.target, "pred"));
+document.getElementById("sortMode").addEventListener("change", () => { updateOrder(); render(); });
+document.getElementById("colsInput").addEventListener("change", render);
+document.getElementById("rowsInput").addEventListener("change", render);
+document.getElementById("globalYInput").addEventListener("change", render);
+document.getElementById("prevBtn").onclick = () => setPage(state.page - 1);
+document.getElementById("nextBtn").onclick = () => setPage(state.page + 1);
+document.getElementById("gotoBtn").onclick = () => {
+  const sid = Number(document.getElementById("gotoInput").value);
+  const pos = state.order.findIndex(i => state.rows[i].sample_id === sid);
+  if (pos >= 0) {
+    state.page = Math.floor(pos / state.perPage);
+    render();
+  }
+};
+document.getElementById("closeBtn").onclick = () => document.getElementById("modalOverlay").classList.remove("open");
+document.getElementById("modalOverlay").addEventListener("click", e => {
+  if (e.target.id === "modalOverlay") document.getElementById("modalOverlay").classList.remove("open");
+});
+document.getElementById("exportBtn").onclick = exportErrors;
+document.getElementById("summaryToggleBtn").onclick = () => {
+  const panel = document.getElementById("summaryPanel");
+  panel.classList.toggle("collapsed");
+  document.getElementById("summaryToggleBtn").textContent = panel.classList.contains("collapsed") ? "展开统计" : "收起统计";
+};
+document.getElementById("chartEndpointScatter").onclick = e => handleChartClick("endpoint", e.currentTarget, e);
+document.getElementById("chartAreaScatter").onclick = e => handleChartClick("area", e.currentTarget, e);
+document.getElementById("chartResidual").onclick = e => handleChartClick("residual", e.currentTarget, e);
+let wheelAccum = 0;
+let wheelTimer = null;
+window.addEventListener("wheel", e => {
+  if (!state.rows.length) return;
+  if (document.getElementById("modalOverlay").classList.contains("open")) return;
+  const tag = document.activeElement ? document.activeElement.tagName : "";
+  if (tag === "INPUT" || tag === "SELECT" || tag === "BUTTON") return;
+  e.preventDefault();
+  wheelAccum += e.deltaY;
+  const threshold = 120;
+  if (wheelAccum >= threshold) {
+    const flips = Math.floor(wheelAccum / threshold);
+    wheelAccum -= flips * threshold;
+    setPage(state.page + flips);
+  } else if (wheelAccum <= -threshold) {
+    const flips = Math.floor(-wheelAccum / threshold);
+    wheelAccum += flips * threshold;
+    setPage(state.page - flips);
+  }
+  clearTimeout(wheelTimer);
+  wheelTimer = setTimeout(() => { wheelAccum = 0; }, 360);
+}, { passive: false });
+
+window.addEventListener("keydown", e => {
+  if (!state.rows.length) return;
+  if (document.getElementById("modalOverlay").classList.contains("open")) {
+    if (e.key === "Escape") document.getElementById("modalOverlay").classList.remove("open");
+    return;
+  }
+  if (e.key === "ArrowRight") setPage(state.page + 1);
+  if (e.key === "ArrowLeft") setPage(state.page - 1);
+});
+window.addEventListener("resize", () => {
+  if (state.rows.length) {
+    renderSummaryPanel();
+    render();
+  }
+});
+</script>
+<script src="site-nav.js" data-current="prediction_curve_compare.html"></script>
+</body>
+</html>
